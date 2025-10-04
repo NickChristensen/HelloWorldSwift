@@ -84,9 +84,9 @@ class MockHealthProvider: HealthDataProvider { }
 
 ## Tasks
 - [x] Set up HealthKit framework and request permissions
-- [ ] Configure simulator with mock health data
-- [ ] Create HealthKit data service to read Active Energy
-- [ ] Build basic UI to display Active Energy data
+- [x] Configure simulator with mock health data
+- [x] Create HealthKit data service to read Active Energy
+- [x] Build basic UI to display Active Energy data
 - [ ] Integrate Swift Charts for energy trend visualization
 - [ ] Style chart to match Health app design
 - [ ] Create widget extension
@@ -100,3 +100,20 @@ class MockHealthProvider: HealthDataProvider { }
 - Created `HealthKitManager` class to handle authorization
 - Updated `ContentView` to request permissions on launch
 - **Result**: HealthKit authorization prompt working correctly in simulator
+
+### 2025-10-04: Sample Data Generation ✅
+- Added `NSHealthUpdateUsageDescription` for write permissions
+- Implemented `generateSampleData()` with 60 days of realistic data
+- Added morning workout spike (150-250 cal at 7 AM)
+- Auto-clears existing data before generating (prevents duplicates)
+- Simulator-only UI with `#if targetEnvironment(simulator)`
+- **Result**: Can generate and view realistic Active Energy data in Health app
+
+### 2025-10-04: Data Reading Service ✅
+- Created `HourlyEnergyData` model
+- Implemented `fetchEnergyData()` to read from HealthKit
+- Fetches today's total and hourly breakdown
+- Calculates 30-day average total and hourly pattern
+- Added published properties for reactive UI updates
+- Built basic UI showing today vs average calories
+- **Result**: App successfully reads and displays Active Energy data (696 cal today, 901 cal average)

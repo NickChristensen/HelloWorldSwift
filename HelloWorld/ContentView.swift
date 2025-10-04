@@ -25,8 +25,40 @@ struct ContentView: View {
                 .fontWeight(.bold)
 
             if healthKitManager.isAuthorized {
-                Text("✓ HealthKit Authorized")
-                    .foregroundStyle(.green)
+                VStack(spacing: 16) {
+                    // Today vs Average
+                    HStack(spacing: 40) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Circle()
+                                    .fill(.orange)
+                                    .frame(width: 8, height: 8)
+                                Text("Today")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("\(Int(healthKitManager.todayTotal)) cal")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Circle()
+                                    .fill(.gray)
+                                    .frame(width: 8, height: 8)
+                                Text("Average")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("\(Int(healthKitManager.averageTotal)) cal")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                }
             } else if authorizationRequested {
                 Text("⚠️ Waiting for authorization...")
                     .foregroundStyle(.orange)
@@ -52,6 +84,8 @@ struct ContentView: View {
                             isGeneratingData = true
                             do {
                                 try await healthKitManager.generateSampleData()
+                                // Refresh data after generating
+                                try await healthKitManager.fetchEnergyData()
                                 dataGenerated = true
                             } catch {
                                 print("Failed to generate sample data: \(error)")
@@ -92,8 +126,11 @@ struct ContentView: View {
 
             do {
                 try await healthKitManager.requestAuthorization()
+
+                // Fetch data after authorization
+                try await healthKitManager.fetchEnergyData()
             } catch {
-                print("HealthKit authorization failed: \(error)")
+                print("HealthKit error: \(error)")
             }
         }
     }
