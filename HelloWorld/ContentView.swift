@@ -10,6 +10,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var healthKitManager = HealthKitManager()
     @State private var authorizationRequested = false
+    @State private var isGeneratingData = false
+    @State private var dataGenerated = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -32,6 +34,55 @@ struct ContentView: View {
                 Text("Needs HealthKit access")
                     .foregroundStyle(.secondary)
             }
+
+            // Sample data generation button (for development/testing)
+            // Only show in simulator, not on real devices
+            #if targetEnvironment(simulator)
+            if healthKitManager.isAuthorized {
+                Divider()
+                    .padding(.vertical)
+
+                VStack(spacing: 12) {
+                    Text("Development Tools")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+
+                    Button(action: {
+                        Task {
+                            isGeneratingData = true
+                            do {
+                                try await healthKitManager.generateSampleData()
+                                dataGenerated = true
+                            } catch {
+                                print("Failed to generate sample data: \(error)")
+                            }
+                            isGeneratingData = false
+                        }
+                    }) {
+                        HStack {
+                            if isGeneratingData {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .padding(.trailing, 4)
+                            }
+                            Text(isGeneratingData ? "Generating..." : "Generate Sample Data")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(10)
+                    }
+                    .disabled(isGeneratingData)
+
+                    if dataGenerated {
+                        Text("✓ Sample data added to Health app")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+            }
+            #endif
         }
         .padding()
         .task {
