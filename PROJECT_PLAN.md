@@ -83,7 +83,7 @@ class MockHealthProvider: HealthDataProvider { }
 4. Build widget last (reuse existing chart code)
 
 ## Tasks
-- [ ] Set up HealthKit framework and request permissions
+- [x] Set up HealthKit framework and request permissions
 - [ ] Configure simulator with mock health data
 - [ ] Create HealthKit data service to read Active Energy
 - [ ] Build basic UI to display Active Energy data
@@ -91,3 +91,12 @@ class MockHealthProvider: HealthDataProvider { }
 - [ ] Style chart to match Health app design
 - [ ] Create widget extension
 - [ ] Render chart in widget timeline
+
+## Progress Log
+
+### 2025-10-04: HealthKit Setup Complete ✅
+- Created `HelloWorld.entitlements` with HealthKit capability
+- Added `NSHealthShareUsageDescription` privacy key
+- Created `HealthKitManager` class to handle authorization
+- Updated `ContentView` to request permissions on launch
+- **Result**: HealthKit authorization prompt working correctly in simulator
