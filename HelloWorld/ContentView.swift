@@ -26,8 +26,8 @@ struct ContentView: View {
 
             if healthKitManager.isAuthorized {
                 VStack(spacing: 16) {
-                    // Today vs Average
-                    HStack(spacing: 40) {
+                    // Today vs Average vs Total
+                    HStack(spacing: 20) {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Circle()
@@ -51,7 +51,22 @@ struct ContentView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
-                            Text("\(Int(healthKitManager.averageTotal)) cal")
+                            Text("\(Int(healthKitManager.averageAtCurrentHour)) cal")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Circle()
+                                    .fill(.green)
+                                    .frame(width: 8, height: 8)
+                                Text("Total")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("\(Int(healthKitManager.projectedTotal)) cal")
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundStyle(.secondary)

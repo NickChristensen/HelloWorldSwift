@@ -15,7 +15,8 @@ final class HealthKitManager: ObservableObject {
 
     @Published var isAuthorized = false
     @Published var todayTotal: Double = 0
-    @Published var averageTotal: Double = 0
+    @Published var averageAtCurrentHour: Double = 0  // Average cumulative calories BY current hour (see CLAUDE.md)
+    @Published var projectedTotal: Double = 0  // Average of complete daily totals (see CLAUDE.md)
     @Published var todayHourlyData: [HourlyEnergyData] = []
     @Published var averageHourlyData: [HourlyEnergyData] = []
 
@@ -133,11 +134,25 @@ final class HealthKitManager: ObservableObject {
 
         self.todayTotal = today.total
         self.todayHourlyData = today.hourlyData
-        self.averageTotal = average.total
+        self.projectedTotal = average.total
         self.averageHourlyData = average.hourlyData
+
+        // Calculate average at current hour
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: Date())
+
+        // Find the value in averageHourlyData for the current hour
+        if let currentHourData = average.hourlyData.first(where: {
+            calendar.component(.hour, from: $0.hour) == currentHour
+        }) {
+            self.averageAtCurrentHour = currentHourData.calories
+        } else {
+            self.averageAtCurrentHour = 0
+        }
     }
 
     // Fetch today's Active Energy data
+    // Returns cumulative calories at each hour (see CLAUDE.md for "Today" definition)
     private func fetchTodayData() async throws -> (total: Double, hourlyData: [HourlyEnergyData]) {
         let calendar = Calendar.current
         let now = Date()
@@ -145,22 +160,32 @@ final class HealthKitManager: ObservableObject {
 
         let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
 
-        // Fetch hourly data
+        // Fetch hourly data (non-cumulative)
         let hourlyData = try await fetchHourlyData(from: startOfDay, to: now, type: activeEnergyType)
 
-        // Calculate total
-        let total = hourlyData.reduce(0) { $0 + $1.calories }
+        // Convert to cumulative data (running sum)
+        var cumulativeData: [HourlyEnergyData] = []
+        var runningTotal: Double = 0
 
-        return (total, hourlyData)
+        for data in hourlyData.sorted(by: { $0.hour < $1.hour }) {
+            runningTotal += data.calories
+            cumulativeData.append(HourlyEnergyData(hour: data.hour, calories: runningTotal))
+        }
+
+        // Total is the final cumulative value
+        let total = runningTotal
+
+        return (total, cumulativeData)
     }
 
     // Fetch average Active Energy data from past 30 days
+    // Returns "Total" and "Average" (see CLAUDE.md)
     private func fetchAverageData() async throws -> (total: Double, hourlyData: [HourlyEnergyData]) {
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
 
-        // Get data from 30 days ago to yesterday
+        // Get data from 30 days ago to yesterday (excluding today)
         guard let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: startOfToday),
               let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday) else {
             return (0, [])
@@ -168,16 +193,14 @@ final class HealthKitManager: ObservableObject {
 
         let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
 
-        // Fetch daily totals for past 30 days
+        // Fetch daily totals for "Total" metric (average of complete daily totals)
         let dailyTotals = try await fetchDailyTotals(from: thirtyDaysAgo, to: yesterday, type: activeEnergyType)
+        let projectedTotal = dailyTotals.isEmpty ? 0 : dailyTotals.reduce(0, +) / Double(dailyTotals.count)
 
-        // Calculate average daily total
-        let averageTotal = dailyTotals.isEmpty ? 0 : dailyTotals.reduce(0, +) / Double(dailyTotals.count)
+        // Fetch cumulative average hourly pattern for "Average" metric
+        let averageHourlyData = try await fetchCumulativeAverageHourlyPattern(from: thirtyDaysAgo, to: yesterday, type: activeEnergyType)
 
-        // Fetch average hourly pattern
-        let averageHourlyData = try await fetchAverageHourlyPattern(from: thirtyDaysAgo, to: yesterday, type: activeEnergyType)
-
-        return (averageTotal, averageHourlyData)
+        return (projectedTotal, averageHourlyData)
     }
 
     // Fetch hourly data for a specific time range
@@ -238,12 +261,11 @@ final class HealthKitManager: ObservableObject {
         return Array(dailyTotals.values)
     }
 
-    // Fetch average hourly pattern across multiple days
-    private func fetchAverageHourlyPattern(from startDate: Date, to endDate: Date, type: HKQuantityType) async throws -> [HourlyEnergyData] {
+    // Fetch cumulative average hourly pattern across multiple days
+    // For each hour H, calculates average of cumulative totals BY that hour (see CLAUDE.md for "Average")
+    private func fetchCumulativeAverageHourlyPattern(from startDate: Date, to endDate: Date, type: HKQuantityType) async throws -> [HourlyEnergyData] {
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
         let calendar = Calendar.current
-
-        var hourlyData: [Int: (total: Double, count: Int)] = [:]
 
         let samples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKQuantitySample], Error>) in
             let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
@@ -256,22 +278,60 @@ final class HealthKitManager: ObservableObject {
             healthStore.execute(query)
         }
 
-        // Group by hour of day (0-23)
+        // Group samples by day, then calculate cumulative totals for each day
+        var dailyCumulativeData: [Date: [Int: Double]] = [:] // [dayStart: [hour: cumulativeCalories]]
+
         for sample in samples {
+            let dayStart = calendar.startOfDay(for: sample.startDate)
             let hour = calendar.component(.hour, from: sample.startDate)
             let calories = sample.quantity.doubleValue(for: .kilocalorie())
-            let current = hourlyData[hour] ?? (total: 0, count: 0)
-            hourlyData[hour] = (total: current.total + calories, count: current.count + 1)
+
+            if dailyCumulativeData[dayStart] == nil {
+                dailyCumulativeData[dayStart] = [:]
+            }
+            dailyCumulativeData[dayStart]![hour, default: 0] += calories
         }
 
-        // Calculate averages and convert to HourlyEnergyData
+        // Convert each day's hourly data to cumulative
+        var dailyCumulative: [Date: [Int: Double]] = [:] // [dayStart: [hour: cumulativeTotalByHour]]
+
+        for (dayStart, hourlyData) in dailyCumulativeData {
+            var runningTotal: Double = 0
+            var cumulativeByHour: [Int: Double] = [:]
+
+            // Sort hours and calculate cumulative
+            for hour in 0..<24 {
+                runningTotal += hourlyData[hour] ?? 0
+                cumulativeByHour[hour] = runningTotal
+            }
+
+            dailyCumulative[dayStart] = cumulativeByHour
+        }
+
+        // For each hour, average the cumulative totals across all days
+        var averageCumulativeByHour: [Int: Double] = [:]
+
+        for hour in 0..<24 {
+            var totalForHour: Double = 0
+            var count = 0
+
+            for (_, cumulativeByHour) in dailyCumulative {
+                if let cumulativeAtHour = cumulativeByHour[hour], cumulativeAtHour > 0 {
+                    totalForHour += cumulativeAtHour
+                    count += 1
+                }
+            }
+
+            averageCumulativeByHour[hour] = count > 0 ? totalForHour / Double(count) : 0
+        }
+
+        // Convert to HourlyEnergyData
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
 
-        return hourlyData.map { hour, data in
+        return averageCumulativeByHour.map { hour, avgCumulative in
             let hourDate = calendar.date(byAdding: .hour, value: hour, to: startOfToday)!
-            let averageCalories = data.count > 0 ? data.total / Double(data.count) : 0
-            return HourlyEnergyData(hour: hourDate, calories: averageCalories)
+            return HourlyEnergyData(hour: hourDate, calories: avgCumulative)
         }.sorted { $0.hour < $1.hour }
     }
 }
