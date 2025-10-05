@@ -1,5 +1,13 @@
 # Health Trends - Technical Documentation
 
+## Workflow Rules
+
+### Git Commits
+- **Always update PROJECT_PLAN.md before every git commit**
+  - Update progress log with what was accomplished
+  - Update task checklist
+  - Add any new insights or decisions
+
 ## Terminology
 
 This document defines the key metrics used throughout the app to avoid confusion.

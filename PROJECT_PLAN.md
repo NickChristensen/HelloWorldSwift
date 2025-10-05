@@ -139,3 +139,8 @@ class MockHealthProvider: HealthDataProvider { }
 - Updated UI to display all 4 statistics in 2x2 grid layout
 - Added simulator-only mock goal (1,000 cal) for development
 - **Result**: All 4 statistics displaying (Today: 757, Average: 805, Total: 894, Goal: 1,000)
+
+### 2025-10-04: Documentation Organization ✅
+- Moved `CLAUDE.md` to `.claude/CLAUDE.md` for proper project-specific settings location
+- Added "Workflow Rules" section to document git commit workflow
+- **Rule**: Always update PROJECT_PLAN.md before every git commit
