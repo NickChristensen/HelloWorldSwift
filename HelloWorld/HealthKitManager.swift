@@ -17,6 +17,7 @@ final class HealthKitManager: ObservableObject {
     @Published var todayTotal: Double = 0
     @Published var averageAtCurrentHour: Double = 0  // Average cumulative calories BY current hour (see CLAUDE.md)
     @Published var projectedTotal: Double = 0  // Average of complete daily totals (see CLAUDE.md)
+    @Published var moveGoal: Double = 0  // Daily Move goal from Fitness app
     @Published var todayHourlyData: [HourlyEnergyData] = []
     @Published var averageHourlyData: [HourlyEnergyData] = []
 
@@ -33,8 +34,9 @@ final class HealthKitManager: ObservableObject {
 
         // Types we want to read and write
         let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        let activitySummaryType = HKObjectType.activitySummaryType()
 
-        let typesToRead: Set<HKObjectType> = [activeEnergyType]
+        let typesToRead: Set<HKObjectType> = [activeEnergyType, activitySummaryType]
         let typesToWrite: Set<HKSampleType> = [activeEnergyType]
 
         try await healthStore.requestAuthorization(toShare: typesToWrite, read: typesToRead)
@@ -78,9 +80,18 @@ final class HealthKitManager: ObservableObject {
                 continue
             }
 
+            // For today (dayOffset == 0), only generate up to current hour
+            // For past days, generate all 24 hours
+            let maxHour = dayOffset == 0 ? calendar.component(.hour, from: now) : 23
+
             // Generate hourly data points for each day
-            for hour in 0..<24 {
+            for hour in 0...maxHour {
                 guard let hourStart = calendar.date(byAdding: .hour, value: hour, to: dayStart) else {
+                    continue
+                }
+
+                // Don't generate data in the future
+                guard hourStart <= now else {
                     continue
                 }
 
@@ -149,6 +160,46 @@ final class HealthKitManager: ObservableObject {
         } else {
             self.averageAtCurrentHour = 0
         }
+    }
+
+    // Fetch Move goal from Activity Summary
+    func fetchMoveGoal() async throws {
+        guard isHealthKitAvailable else {
+            throw HealthKitError.notAvailable
+        }
+
+        #if targetEnvironment(simulator)
+        // Simulator doesn't have Fitness app, use mock goal for development
+        self.moveGoal = 1000
+        #else
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Create predicate for today's activity summary
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+        dateComponents.calendar = calendar
+
+        let predicate = HKQuery.predicateForActivitySummary(with: dateComponents)
+
+        let activitySummary = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HKActivitySummary?, Error>) in
+            let query = HKActivitySummaryQuery(predicate: predicate) { _, summaries, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: summaries?.first)
+            }
+            healthStore.execute(query)
+        }
+
+        // Extract the active energy burned goal
+        if let summary = activitySummary {
+            let goalInKilocalories = summary.activeEnergyBurnedGoal.doubleValue(for: .kilocalorie())
+            self.moveGoal = goalInKilocalories
+        } else {
+            self.moveGoal = 0
+        }
+        #endif
     }
 
     // Fetch today's Active Energy data

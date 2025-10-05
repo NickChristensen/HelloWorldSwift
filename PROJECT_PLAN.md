@@ -2,9 +2,11 @@
 
 ## Vision
 Display Active Energy data from HealthKit as a widget, showing:
-- Today's calories vs. average
-- Comparison message ("You're burning more calories today than you normally do")
-- Line chart comparing today (orange) vs average (gray) throughout the day
+- **Today**: Cumulative calories burned so far today (orange line)
+- **Average**: Average cumulative calories by current hour over past 30 days (gray line)
+- **Total**: Average of complete daily totals from past 30 days (green vertical line)
+- **Goal**: Daily Move goal from Fitness app (pink dashed line)
+- Line chart comparing all 4 metrics throughout the day
 
 ## Phase 1: HealthKit Setup
 
@@ -87,6 +89,9 @@ class MockHealthProvider: HealthDataProvider { }
 - [x] Configure simulator with mock health data
 - [x] Create HealthKit data service to read Active Energy
 - [x] Build basic UI to display Active Energy data
+- [x] Refactor data model for cumulative metrics (Today, Average, Total)
+- [x] Fetch Move goal from HealthKit ActivitySummary
+- [x] Display all 4 statistics in UI
 - [ ] Integrate Swift Charts for energy trend visualization
 - [ ] Style chart to match Health app design
 - [ ] Create widget extension
@@ -117,3 +122,20 @@ class MockHealthProvider: HealthDataProvider { }
 - Added published properties for reactive UI updates
 - Built basic UI showing today vs average calories
 - **Result**: App successfully reads and displays Active Energy data (696 cal today, 901 cal average)
+
+### 2025-10-04: Cumulative Metrics Refactor ✅
+- Created `CLAUDE.md` to document terminology (Today/Average/Total definitions)
+- Refactored `fetchTodayData()` to return cumulative hourly data (running sum)
+- Implemented `fetchCumulativeAverageHourlyPattern()` for proper average calculation
+- Renamed `averageTotal` → `projectedTotal` to match "Total" metric
+- Added `averageAtCurrentHour` property for "Average" display
+- Fixed mock data generator to not create future data (only up to current hour)
+- **Result**: All 3 metrics correctly calculate cumulative values
+
+### 2025-10-04: Move Goal Integration ✅
+- Added `HKActivitySummaryType` permission to authorization
+- Implemented `fetchMoveGoal()` to read from HealthKit Activity Summary
+- Added `moveGoal` published property
+- Updated UI to display all 4 statistics in 2x2 grid layout
+- Added simulator-only mock goal (1,000 cal) for development
+- **Result**: All 4 statistics displaying (Today: 757, Average: 805, Total: 894, Goal: 1,000)
