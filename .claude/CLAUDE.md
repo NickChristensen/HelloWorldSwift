@@ -8,6 +8,11 @@
   - Update task checklist
   - Add any new insights or decisions
 
+### Documentation
+- **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
+  - Use it to look up APIs, best practices, and implementation details
+  - Available tools: search_apple_docs, get_apple_doc_content, list_technologies, etc.
+
 ## Terminology
 
 This document defines the key metrics used throughout the app to avoid confusion.
