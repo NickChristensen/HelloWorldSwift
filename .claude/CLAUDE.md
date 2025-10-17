@@ -2,6 +2,8 @@
 
 ## Workflow Rules
 
+We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
+
 ### Git Commits
 - **Always update PROJECT_PLAN.md before every git commit**
   - Update progress log with what was accomplished
@@ -14,7 +16,6 @@
   - Available tools: search_apple_docs, get_apple_doc_content, list_technologies, etc.
 
 ## Terminology
-
 This document defines the key metrics used throughout the app to avoid confusion.
 
 ### "Today"
