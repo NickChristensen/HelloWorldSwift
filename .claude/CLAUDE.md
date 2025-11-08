@@ -4,6 +4,12 @@
 
 We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 
+### Git Commits
+- **Always update beads task status before every git commit**
+  - Close completed issues with `bd close <issue-id>`
+  - Update in-progress work with `bd update <issue-id> --status in_progress`
+  - This ensures issues.jsonl stays in sync with code changes
+
 ### Documentation
 - **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
   - Use it to look up APIs, best practices, and implementation details
