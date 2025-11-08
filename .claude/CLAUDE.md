@@ -4,12 +4,6 @@
 
 We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 
-### Git Commits
-- **Always update PROJECT_PLAN.md before every git commit**
-  - Update progress log with what was accomplished
-  - Update task checklist
-  - Add any new insights or decisions
-
 ### Documentation
 - **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
   - Use it to look up APIs, best practices, and implementation details
