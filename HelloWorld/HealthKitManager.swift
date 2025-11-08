@@ -170,7 +170,7 @@ final class HealthKitManager: ObservableObject {
 
         #if targetEnvironment(simulator)
         // Simulator doesn't have Fitness app, use mock goal for development
-        self.moveGoal = 1000
+        self.moveGoal = 800
         #else
         let calendar = Calendar.current
         let now = Date()

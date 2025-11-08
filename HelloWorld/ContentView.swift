@@ -6,6 +6,132 @@
 //
 
 import SwiftUI
+import Charts
+
+struct EnergyChartView: View {
+    let todayHourlyData: [HourlyEnergyData]
+    let averageHourlyData: [HourlyEnergyData]
+    let moveGoal: Double
+    let projectedTotal: Double
+
+    private let lineWidth: CGFloat = 4
+
+    private var calendar: Calendar { Calendar.current }
+    private var currentHour: Int { calendar.component(.hour, from: Date()) }
+
+    @ChartContentBuilder
+    private var averageLines: some ChartContent {
+        // Average data - up to current hour (darker gray)
+        ForEach(averageHourlyData.filter { calendar.component(.hour, from: $0.hour) <= currentHour }) { data in
+            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageUpToNow"))
+                .foregroundStyle(.gray)
+                .lineStyle(StrokeStyle(lineWidth: lineWidth))
+        }
+        // Average data - rest of day (lighter gray)
+        ForEach(averageHourlyData.filter { calendar.component(.hour, from: $0.hour) >= currentHour }) { data in
+            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
+                .foregroundStyle(.gray.opacity(0.5))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth))
+        }
+    }
+
+    @ChartContentBuilder
+    private var averagePoint: some ChartContent {
+        if let avg = averageHourlyData.first(where: { calendar.component(.hour, from: $0.hour) == currentHour }) {
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.gray).symbolSize(100)
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(60)
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.gray).symbolSize(50)
+        }
+    }
+
+    @ChartContentBuilder
+    private var todayLine: some ChartContent {
+        ForEach(todayHourlyData) { data in
+            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "Today"))
+                .foregroundStyle(.orange)
+                .lineStyle(StrokeStyle(lineWidth: lineWidth))
+        }
+    }
+
+    @ChartContentBuilder
+    private var todayPoint: some ChartContent {
+        if let last = todayHourlyData.last {
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.orange).symbolSize(100)
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.background).symbolSize(60)
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.orange).symbolSize(50)
+        }
+    }
+
+    @ChartContentBuilder
+    private var goalLine: some ChartContent {
+        if moveGoal > 0 {
+            RuleMark(y: .value("Goal", moveGoal))
+                .foregroundStyle(.pink)
+                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+        }
+    }
+
+    @ChartContentBuilder
+    private var totalBar: some ChartContent {
+        if projectedTotal > 0 {
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+            RectangleMark(x: .value("End", endOfDay), yStart: .value("Min", 0), yEnd: .value("Total", projectedTotal), width: .fixed(lineWidth))
+                .foregroundStyle(.green)
+                .cornerRadius(lineWidth / 2)
+        }
+    }
+
+    var body: some View {
+        Chart {
+            averageLines
+            averagePoint
+            todayLine
+            todayPoint
+            goalLine
+            totalBar
+        }
+        .frame(height: 400)
+        .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
+        .chartYScale(domain: 0...max(
+            todayHourlyData.last?.calories ?? 0,
+            averageHourlyData.last?.calories ?? 0,
+            moveGoal,
+            projectedTotal
+        ))
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .hour, count: 6)) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel(format: .dateTime.hour())
+            }
+        }
+        .chartYAxis {
+            AxisMarks { value in
+                AxisGridLine()
+            }
+        }
+        .overlay {
+            if moveGoal > 0 {
+                GeometryReader { geometry in
+                    let chartHeight = geometry.size.height
+                    let maxValue = max(
+                        todayHourlyData.last?.calories ?? 0,
+                        averageHourlyData.last?.calories ?? 0,
+                        moveGoal,
+                        projectedTotal
+                    )
+                    let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
+
+                    Text("\(Int(moveGoal)) cal")
+                        .font(.caption)
+                        .foregroundStyle(.pink)
+                        .offset(x: 0, y: goalYPosition + 0)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+    }
+}
 
 struct ContentView: View {
     @StateObject private var healthKitManager = HealthKitManager()
@@ -15,15 +141,6 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "heart.fill")
-                .imageScale(.large)
-                .foregroundStyle(.red)
-                .font(.system(size: 60))
-
-            Text("Health Trends")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
             if healthKitManager.isAuthorized {
                 VStack(spacing: 16) {
                     // Today vs Average vs Total
@@ -92,6 +209,13 @@ struct ContentView: View {
                         }
                     }
 
+                    // Energy Trend Chart
+                    EnergyChartView(
+                        todayHourlyData: healthKitManager.todayHourlyData,
+                        averageHourlyData: healthKitManager.averageHourlyData,
+                        moveGoal: healthKitManager.moveGoal,
+                        projectedTotal: healthKitManager.projectedTotal
+                    )
                 }
             } else if authorizationRequested {
                 Text("⚠️ Waiting for authorization...")
