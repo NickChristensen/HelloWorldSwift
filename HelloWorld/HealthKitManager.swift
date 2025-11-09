@@ -215,12 +215,18 @@ final class HealthKitManager: ObservableObject {
         let hourlyData = try await fetchHourlyData(from: startOfDay, to: now, type: activeEnergyType)
 
         // Convert to cumulative data (running sum)
+        // Timestamps should represent END of hour (12 AM data shown at 1 AM, etc.)
         var cumulativeData: [HourlyEnergyData] = []
-        var runningTotal: Double = 0
 
+        // Start with 0 at midnight to show beginning of day
+        cumulativeData.append(HourlyEnergyData(hour: startOfDay, calories: 0))
+
+        var runningTotal: Double = 0
         for data in hourlyData.sorted(by: { $0.hour < $1.hour }) {
             runningTotal += data.calories
-            cumulativeData.append(HourlyEnergyData(hour: data.hour, calories: runningTotal))
+            // Move timestamp to end of hour
+            let endOfHour = calendar.date(byAdding: .hour, value: 1, to: data.hour)!
+            cumulativeData.append(HourlyEnergyData(hour: endOfHour, calories: runningTotal))
         }
 
         // Total is the final cumulative value
@@ -380,10 +386,18 @@ final class HealthKitManager: ObservableObject {
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
 
-        return averageCumulativeByHour.map { hour, avgCumulative in
-            let hourDate = calendar.date(byAdding: .hour, value: hour, to: startOfToday)!
+        var hourlyData: [HourlyEnergyData] = []
+
+        // Start with 0 at midnight to show beginning of day
+        hourlyData.append(HourlyEnergyData(hour: startOfToday, calories: 0))
+
+        // Timestamps should represent END of hour (hour 0 = 1 AM, hour 23 = midnight next day)
+        hourlyData.append(contentsOf: averageCumulativeByHour.map { hour, avgCumulative in
+            let hourDate = calendar.date(byAdding: .hour, value: hour + 1, to: startOfToday)!
             return HourlyEnergyData(hour: hourDate, calories: avgCumulative)
-        }.sorted { $0.hour < $1.hour }
+        }.sorted { $0.hour < $1.hour })
+
+        return hourlyData
     }
 }
 

@@ -8,39 +8,39 @@
 import SwiftUI
 import Charts
 
+
+private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 1/255)
+private let goalColor: Color = Color(.systemGray)
+private let lineWidth: CGFloat = 4
+
 struct EnergyChartView: View {
     let todayHourlyData: [HourlyEnergyData]
     let averageHourlyData: [HourlyEnergyData]
     let moveGoal: Double
     let projectedTotal: Double
 
-    private let lineWidth: CGFloat = 4
-
     private var calendar: Calendar { Calendar.current }
     private var currentHour: Int { calendar.component(.hour, from: Date()) }
+    // End of current hour (e.g., if it's 2:30 PM, this is 3:00 PM)
+    private var endOfCurrentHour: Date {
+        let now = Date()
+        let startOfHour = calendar.dateInterval(of: .hour, for: now)!.start
+        return calendar.date(byAdding: .hour, value: 1, to: startOfHour)!
+    }
 
     @ChartContentBuilder
     private var averageLines: some ChartContent {
         // Average data - up to current hour (darker gray)
-        ForEach(averageHourlyData.filter { calendar.component(.hour, from: $0.hour) <= currentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour <= endOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageUpToNow"))
-                .foregroundStyle(.gray)
-                .lineStyle(StrokeStyle(lineWidth: lineWidth))
+                .foregroundStyle(Color(.systemGray4))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
         // Average data - rest of day (lighter gray)
-        ForEach(averageHourlyData.filter { calendar.component(.hour, from: $0.hour) >= currentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour >= endOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
-                .foregroundStyle(.gray.opacity(0.5))
-                .lineStyle(StrokeStyle(lineWidth: lineWidth))
-        }
-    }
-
-    @ChartContentBuilder
-    private var averagePoint: some ChartContent {
-        if let avg = averageHourlyData.first(where: { calendar.component(.hour, from: $0.hour) == currentHour }) {
-            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.gray).symbolSize(100)
-            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(60)
-            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.gray).symbolSize(50)
+                .foregroundStyle(Color(.systemGray6))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
     }
 
@@ -48,17 +48,24 @@ struct EnergyChartView: View {
     private var todayLine: some ChartContent {
         ForEach(todayHourlyData) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "Today"))
-                .foregroundStyle(.orange)
-                .lineStyle(StrokeStyle(lineWidth: lineWidth))
+                .foregroundStyle(activeEnergyColor)
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+        }
+    }
+
+    @ChartContentBuilder
+    private var averagePoint: some ChartContent {
+        if let avg = averageHourlyData.first(where: { $0.hour == endOfCurrentHour }) {
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(200)
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(Color(.systemGray4)).symbolSize(100)
         }
     }
 
     @ChartContentBuilder
     private var todayPoint: some ChartContent {
         if let last = todayHourlyData.last {
-            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.orange).symbolSize(100)
-            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.background).symbolSize(60)
-            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.orange).symbolSize(50)
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.background).symbolSize(200)
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(activeEnergyColor).symbolSize(100)
         }
     }
 
@@ -66,18 +73,8 @@ struct EnergyChartView: View {
     private var goalLine: some ChartContent {
         if moveGoal > 0 {
             RuleMark(y: .value("Goal", moveGoal))
-                .foregroundStyle(.pink)
+                .foregroundStyle(goalColor)
                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-        }
-    }
-
-    @ChartContentBuilder
-    private var totalBar: some ChartContent {
-        if projectedTotal > 0 {
-            let endOfDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-            RectangleMark(x: .value("End", endOfDay), yStart: .value("Min", 0), yEnd: .value("Total", projectedTotal), width: .fixed(lineWidth))
-                .foregroundStyle(.green)
-                .cornerRadius(lineWidth / 2)
         }
     }
 
@@ -88,9 +85,8 @@ struct EnergyChartView: View {
             todayLine
             todayPoint
             goalLine
-            totalBar
         }
-        .frame(height: 400)
+        .frame(height: 300)
         .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
         .chartYScale(domain: 0...max(
             todayHourlyData.last?.calories ?? 0,
@@ -99,35 +95,97 @@ struct EnergyChartView: View {
             projectedTotal
         ))
         .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 6)) { value in
-                AxisGridLine()
-                AxisTick()
-                AxisValueLabel(format: .dateTime.hour())
+            AxisMarks(values: .stride(by: .hour, count: 1)) { value in
+                if let date = value.as(Date.self) {
+                    let startOfDay = calendar.startOfDay(for: Date())
+                    let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+
+                    // Check if this is a labeled hour (start of day, current hour, or end of day)
+                    let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
+                    let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
+                    let isCurrentHour = abs(date.timeIntervalSince(endOfCurrentHour)) < 60
+                    let isLabeledHour = isStartOfDay || isEndOfDay || isCurrentHour
+
+                    if isLabeledHour {
+                        // Labeled hours: tick line
+                        AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .offset(CGSize(width: 0, height: 8))
+                    } else {
+                        // Unlabeled hours: dot
+                        AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .offset(CGSize(width: 0, height: 11))
+                    }
+                }
             }
         }
         .chartYAxis {
-            AxisMarks { value in
-                AxisGridLine()
-            }
+            AxisMarks {}
         }
         .overlay {
-            if moveGoal > 0 {
-                GeometryReader { geometry in
-                    let chartHeight = geometry.size.height
-                    let maxValue = max(
-                        todayHourlyData.last?.calories ?? 0,
-                        averageHourlyData.last?.calories ?? 0,
-                        moveGoal,
-                        projectedTotal
-                    )
+            GeometryReader { geometry in
+                let chartHeight = geometry.size.height
+                let chartWidth = geometry.size.width
+                let maxValue = max(
+                    todayHourlyData.last?.calories ?? 0,
+                    averageHourlyData.last?.calories ?? 0,
+                    moveGoal,
+                    projectedTotal
+                )
+
+                // Goal label
+                if moveGoal > 0 {
                     let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
 
                     Text("\(Int(moveGoal)) cal")
                         .font(.caption)
-                        .foregroundStyle(.pink)
-                        .offset(x: 0, y: goalYPosition + 0)
+                        .fontWeight(.bold)
+                        .foregroundStyle(goalColor)
+                        .offset(x: 0, y: goalYPosition + 4)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+
+                // Total label (positioned at right side, below average line end)
+                if projectedTotal > 0 {
+                    let totalYPosition = chartHeight * (1 - projectedTotal / maxValue)
+
+                    Text("\(Int(projectedTotal)) cal")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .offset(y: totalYPosition + 15)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                }
+
+                // X-axis labels (positioned below chart)
+                VStack {
+                    Spacer()
+                    ZStack(alignment: .bottom) {
+                        // Start of day - left aligned
+                        Text(calendar.startOfDay(for: Date()), format: .dateTime.hour())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        // Current hour - center aligned at its position
+                        let currentHourOffset = endOfCurrentHour.timeIntervalSince(calendar.startOfDay(for: Date()))
+                        let dayDuration = TimeInterval(24 * 60 * 60)
+                        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+
+                        Text(endOfCurrentHour, format: .dateTime.hour())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .offset(x: currentHourPosition - chartWidth / 2)
+
+                        // End of day - right aligned
+                        Text(calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!, format: .dateTime.hour())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .offset(y: 8) // Match tick offset
+                }
+                .padding(.bottom, -20) // Position below axis ticks
             }
         }
     }
@@ -149,7 +207,7 @@ struct ContentView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Circle()
-                                        .fill(.orange)
+                                        .fill(activeEnergyColor)
                                         .frame(width: 8, height: 8)
                                     Text("Today")
                                         .font(.subheadline)
@@ -176,37 +234,6 @@ struct ContentView: View {
                             }
                         }
 
-                        HStack(spacing: 20) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Circle()
-                                        .fill(.green)
-                                        .frame(width: 8, height: 8)
-                                    Text("Total")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text("\(Int(healthKitManager.projectedTotal)) cal")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Circle()
-                                        .fill(.pink)
-                                        .frame(width: 8, height: 8)
-                                    Text("Goal")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text("\(Int(healthKitManager.moveGoal)) cal")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
                     }
 
                     // Energy Trend Chart
