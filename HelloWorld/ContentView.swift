@@ -77,8 +77,16 @@ struct EnergyChartView: View {
         }
     }
 
+    @ChartContentBuilder
+    private var nowLine: some ChartContent {
+        RuleMark(x: .value("Now", startOfCurrentHour))
+            .foregroundStyle(Color(.systemGray5))
+            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+    }
+
     var body: some View {
         Chart {
+            nowLine
             averageLines
             averagePoint
             todayLine
