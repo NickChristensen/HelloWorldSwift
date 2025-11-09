@@ -2,12 +2,12 @@
 
 ## Workflow Rules
 
-We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
+We track work in Beads instead of Markdown. Check the `beads://quickstart` resource to learn the workflow.
 
 ### Git Commits
 - **Always update beads task status before every git commit**
-  - Close completed issues with `bd close <issue-id>`
-  - Update in-progress work with `bd update <issue-id> --status in_progress`
+  - Close completed issues using the `mcp__plugin_beads_beads__close` tool
+  - Update in-progress work using the `mcp__plugin_beads_beads__update` tool with `status: "in_progress"`
   - This ensures issues.jsonl stays in sync with code changes
 
 ### Documentation

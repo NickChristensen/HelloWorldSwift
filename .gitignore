@@ -59,7 +59,3 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
-
-# Beads - ignore everything except JSONL (source of truth)
-.beads/*
-!.beads/*.jsonl
