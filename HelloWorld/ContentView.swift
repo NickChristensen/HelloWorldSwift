@@ -27,6 +27,32 @@ struct EnergyChartView: View {
         return calendar.dateInterval(of: .hour, for: now)!.start
     }
 
+    // Check if current hour label would overlap with start/end labels
+    private func labelCollisions(chartWidth: CGFloat) -> (hidesStart: Bool, hidesEnd: Bool) {
+        let startOfDay = calendar.startOfDay(for: Date())
+        let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+        let dayDuration = TimeInterval(24 * 60 * 60)
+        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+
+        // Estimate label widths and minimum spacing
+        let labelWidth: CGFloat = 40
+        let minSeparation: CGFloat = 8
+
+        // Calculate boundaries for current hour label
+        let currentHourLeft = currentHourPosition - labelWidth / 2
+        let currentHourRight = currentHourPosition + labelWidth / 2
+
+        // Check collision with start label (left edge + label width)
+        let startLabelRight = labelWidth
+        let hidesStart = currentHourLeft < (startLabelRight + minSeparation)
+
+        // Check collision with end label (right edge - label width)
+        let endLabelLeft = chartWidth - labelWidth
+        let hidesEnd = currentHourRight > (endLabelLeft - minSeparation)
+
+        return (hidesStart, hidesEnd)
+    }
+
     @ChartContentBuilder
     private var averageLines: some ChartContent {
         // Average data - up to current hour (darker gray)
@@ -168,27 +194,39 @@ struct EnergyChartView: View {
                 VStack {
                     Spacer()
                     ZStack(alignment: .bottom) {
-                        // Start of day - left aligned
-                        Text(calendar.startOfDay(for: Date()), format: .dateTime.hour())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        let startOfDay = calendar.startOfDay(for: Date())
+                        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+                        let collisions = labelCollisions(chartWidth: chartWidth)
 
-                        // Current hour - center aligned at its position
-                        let currentHourOffset = startOfCurrentHour.timeIntervalSince(calendar.startOfDay(for: Date()))
-                        let dayDuration = TimeInterval(24 * 60 * 60)
-                        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+                        // Start of day - left aligned (hide if collides with current hour)
+                        if !collisions.hidesStart {
+                            Text(startOfDay, format: .dateTime.hour())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
+                        // Current hour - aligned to edge if replacing start/end, otherwise centered
                         Text(startOfCurrentHour, format: .dateTime.hour())
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .offset(x: currentHourPosition - chartWidth / 2)
+                            .frame(maxWidth: .infinity, alignment: collisions.hidesStart ? .leading : (collisions.hidesEnd ? .trailing : .center))
+                            .offset(x: (!collisions.hidesStart && !collisions.hidesEnd) ? {
+                                // Center at natural position only if not replacing an edge label
+                                let startOfDay = calendar.startOfDay(for: Date())
+                                let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+                                let dayDuration = TimeInterval(24 * 60 * 60)
+                                let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+                                return currentHourPosition - chartWidth / 2
+                            }() : 0)
 
-                        // End of day - right aligned
-                        Text(calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!, format: .dateTime.hour())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        // End of day - right aligned (hide if collides with current hour)
+                        if !collisions.hidesEnd {
+                            Text(endOfDay, format: .dateTime.hour())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
                     .offset(y: 8) // Match tick offset
                 }
