@@ -19,12 +19,34 @@ struct EnergyChartView: View {
     let moveGoal: Double
     let projectedTotal: Double
 
+    // Chart layout constants
+    private let chartHeight: CGFloat = 300
+    private let labelOffset: CGFloat = 4 // Vertical offset from line to label
+    private let labelPadding: CGFloat = 2
+
     private var calendar: Calendar { Calendar.current }
     private var currentHour: Int { calendar.component(.hour, from: Date()) }
     // Start of current hour (e.g., if it's 2:30 PM, this is 2:00 PM)
     private var startOfCurrentHour: Date {
         let now = Date()
         return calendar.dateInterval(of: .hour, for: now)!.start
+    }
+
+    // Calculate max value for chart Y-axis with padding when label is above
+    private var chartMaxValue: Double {
+        let baseMax = max(
+            todayHourlyData.last?.calories ?? 0,
+            averageHourlyData.last?.calories ?? 0,
+            moveGoal,
+            projectedTotal
+        )
+        // Add padding when projectedTotal label is above the line
+        // Use UIFont to get actual caption font metrics
+        let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
+        let labelHeight = captionFont.lineHeight + (labelPadding * 2)
+        let totalSpaceNeeded = labelHeight + labelOffset
+        let extraSpaceForLabel = projectedTotal > moveGoal ? (totalSpaceNeeded / chartHeight) * baseMax : 0
+        return baseMax + extraSpaceForLabel
     }
 
     // Check if current hour label would overlap with start/end labels
@@ -98,8 +120,8 @@ struct EnergyChartView: View {
     private var goalLine: some ChartContent {
         if moveGoal > 0 {
             RuleMark(y: .value("Goal", moveGoal))
-                .foregroundStyle(goalColor)
-                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                .foregroundStyle(goalColor.opacity(0.5))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
         }
     }
 
@@ -119,14 +141,9 @@ struct EnergyChartView: View {
             todayPoint
             goalLine
         }
-        .frame(height: 300)
+        .frame(height: chartHeight)
         .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
-        .chartYScale(domain: 0...max(
-            todayHourlyData.last?.calories ?? 0,
-            averageHourlyData.last?.calories ?? 0,
-            moveGoal,
-            projectedTotal
-        ))
+        .chartYScale(domain: 0...chartMaxValue)
         .chartXAxis {
             AxisMarks(values: .stride(by: .hour, count: 1)) { value in
                 if let date = value.as(Date.self) {
@@ -156,14 +173,8 @@ struct EnergyChartView: View {
         }
         .overlay {
             GeometryReader { geometry in
-                let chartHeight = geometry.size.height
                 let chartWidth = geometry.size.width
-                let maxValue = max(
-                    todayHourlyData.last?.calories ?? 0,
-                    averageHourlyData.last?.calories ?? 0,
-                    moveGoal,
-                    projectedTotal
-                )
+                let maxValue = chartMaxValue
 
                 // Goal label
                 if moveGoal > 0 {
@@ -173,21 +184,33 @@ struct EnergyChartView: View {
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundStyle(goalColor)
-                        .offset(x: 0, y: goalYPosition + 4)
+                        .padding(labelPadding)
+                        .background(.background.opacity(0.5))
+                        .cornerRadius(4)
+                        .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
 
-                // Total label (positioned at right side, below average line end)
+                // Total label (positioned at right side, above/below line based on goal)
                 if projectedTotal > 0 {
                     let totalYPosition = chartHeight * (1 - projectedTotal / maxValue)
+                    // Position above line if exceeding goal, below if not
+                    // When above: subtract offset + label height; when below: add offset only
+                    let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
+                    let labelHeight = captionFont.lineHeight + (labelPadding * 2)
+                    let yOffset = projectedTotal > moveGoal
+                        ? totalYPosition - labelOffset - labelHeight
+                        : totalYPosition + labelOffset
 
                     Text("\(Int(projectedTotal)) cal")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(goalColor)
+                        .padding(labelPadding)
+                        .background(.background.opacity(0.5))
+                        .cornerRadius(4)
+                        .offset(x: (labelPadding), y: yOffset)
                         .frame(maxWidth: .infinity, alignment: .trailing)
-                        .offset(y: totalYPosition + 15)
-                        .frame(maxHeight: .infinity, alignment: .top)
                 }
 
                 // X-axis labels (positioned below chart)
