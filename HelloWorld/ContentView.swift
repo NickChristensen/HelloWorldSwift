@@ -11,7 +11,7 @@ import Charts
 
 private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 1/255)
 private let goalColor: Color = Color(.systemGray)
-private let lineWidth: CGFloat = 4
+private let lineWidth: CGFloat = 5
 
 struct EnergyChartView: View {
     let todayHourlyData: [HourlyEnergyData]
@@ -34,13 +34,13 @@ struct EnergyChartView: View {
         ForEach(averageHourlyData.filter { $0.hour <= endOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageUpToNow"))
                 .foregroundStyle(Color(.systemGray4))
-                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
         }
         // Average data - rest of day (lighter gray)
         ForEach(averageHourlyData.filter { $0.hour >= endOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
                 .foregroundStyle(Color(.systemGray6))
-                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
         }
     }
 
@@ -56,7 +56,7 @@ struct EnergyChartView: View {
     @ChartContentBuilder
     private var averagePoint: some ChartContent {
         if let avg = averageHourlyData.first(where: { $0.hour == endOfCurrentHour }) {
-            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(200)
+            PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(256)
             PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(Color(.systemGray4)).symbolSize(100)
         }
     }
@@ -64,7 +64,7 @@ struct EnergyChartView: View {
     @ChartContentBuilder
     private var todayPoint: some ChartContent {
         if let last = todayHourlyData.last {
-            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.background).symbolSize(200)
+            PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(.background).symbolSize(256)
             PointMark(x: .value("Hour", last.hour), y: .value("Calories", last.calories)).foregroundStyle(activeEnergyColor).symbolSize(100)
         }
     }
