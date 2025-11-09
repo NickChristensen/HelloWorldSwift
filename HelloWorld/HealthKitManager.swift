@@ -214,27 +214,30 @@ final class HealthKitManager: ObservableObject {
         // Fetch hourly data (non-cumulative)
         let hourlyData = try await fetchHourlyData(from: startOfDay, to: now, type: activeEnergyType)
 
+        let currentHourStart = calendar.dateInterval(of: .hour, for: now)!.start
+
+        // Filter out current incomplete hour for chart display
+        // (we'll include it in total, but not plot it since the hour isn't finished)
+        let completeHours = hourlyData.filter { $0.hour < currentHourStart }
+
         // Convert to cumulative data (running sum)
-        // Timestamps represent END of hour for complete hours, START of hour for current incomplete hour
+        // Timestamps represent END of each complete hour
         var cumulativeData: [HourlyEnergyData] = []
 
         // Start with 0 at midnight to show beginning of day
         cumulativeData.append(HourlyEnergyData(hour: startOfDay, calories: 0))
 
-        let currentHourStart = calendar.dateInterval(of: .hour, for: now)!.start
-
         var runningTotal: Double = 0
-        for data in hourlyData.sorted(by: { $0.hour < $1.hour }) {
+        for data in completeHours.sorted(by: { $0.hour < $1.hour }) {
             runningTotal += data.calories
-
-            // For complete hours, use end of hour; for current incomplete hour, use start
-            let isCurrentHour = data.hour == currentHourStart
-            let timestamp = isCurrentHour ? data.hour : calendar.date(byAdding: .hour, value: 1, to: data.hour)!
+            // Use end of hour for timestamp
+            let timestamp = calendar.date(byAdding: .hour, value: 1, to: data.hour)!
             cumulativeData.append(HourlyEnergyData(hour: timestamp, calories: runningTotal))
         }
 
-        // Total is the final cumulative value
-        let total = runningTotal
+        // Calculate total including current hour
+        let currentHourCalories = hourlyData.first(where: { $0.hour == currentHourStart })?.calories ?? 0
+        let total = runningTotal + currentHourCalories
 
         return (total, cumulativeData)
     }
