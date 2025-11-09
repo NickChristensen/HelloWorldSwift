@@ -21,23 +21,22 @@ struct EnergyChartView: View {
 
     private var calendar: Calendar { Calendar.current }
     private var currentHour: Int { calendar.component(.hour, from: Date()) }
-    // End of current hour (e.g., if it's 2:30 PM, this is 3:00 PM)
-    private var endOfCurrentHour: Date {
+    // Start of current hour (e.g., if it's 2:30 PM, this is 2:00 PM)
+    private var startOfCurrentHour: Date {
         let now = Date()
-        let startOfHour = calendar.dateInterval(of: .hour, for: now)!.start
-        return calendar.date(byAdding: .hour, value: 1, to: startOfHour)!
+        return calendar.dateInterval(of: .hour, for: now)!.start
     }
 
     @ChartContentBuilder
     private var averageLines: some ChartContent {
         // Average data - up to current hour (darker gray)
-        ForEach(averageHourlyData.filter { $0.hour <= endOfCurrentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour <= startOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageUpToNow"))
                 .foregroundStyle(Color(.systemGray4))
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
         }
         // Average data - rest of day (lighter gray)
-        ForEach(averageHourlyData.filter { $0.hour >= endOfCurrentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour > startOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
                 .foregroundStyle(Color(.systemGray6))
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
@@ -55,7 +54,7 @@ struct EnergyChartView: View {
 
     @ChartContentBuilder
     private var averagePoint: some ChartContent {
-        if let avg = averageHourlyData.first(where: { $0.hour == endOfCurrentHour }) {
+        if let avg = averageHourlyData.first(where: { $0.hour == startOfCurrentHour }) {
             PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(256)
             PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(Color(.systemGray4)).symbolSize(100)
         }
@@ -103,7 +102,7 @@ struct EnergyChartView: View {
                     // Check if this is a labeled hour (start of day, current hour, or end of day)
                     let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
                     let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
-                    let isCurrentHour = abs(date.timeIntervalSince(endOfCurrentHour)) < 60
+                    let isCurrentHour = abs(date.timeIntervalSince(startOfCurrentHour)) < 60
                     let isLabeledHour = isStartOfDay || isEndOfDay || isCurrentHour
 
                     if isLabeledHour {
@@ -168,11 +167,11 @@ struct EnergyChartView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         // Current hour - center aligned at its position
-                        let currentHourOffset = endOfCurrentHour.timeIntervalSince(calendar.startOfDay(for: Date()))
+                        let currentHourOffset = startOfCurrentHour.timeIntervalSince(calendar.startOfDay(for: Date()))
                         let dayDuration = TimeInterval(24 * 60 * 60)
                         let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
 
-                        Text(endOfCurrentHour, format: .dateTime.hour())
+                        Text(startOfCurrentHour, format: .dateTime.hour())
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .offset(x: currentHourPosition - chartWidth / 2)

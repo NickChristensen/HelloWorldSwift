@@ -215,18 +215,22 @@ final class HealthKitManager: ObservableObject {
         let hourlyData = try await fetchHourlyData(from: startOfDay, to: now, type: activeEnergyType)
 
         // Convert to cumulative data (running sum)
-        // Timestamps should represent END of hour (12 AM data shown at 1 AM, etc.)
+        // Timestamps represent END of hour for complete hours, START of hour for current incomplete hour
         var cumulativeData: [HourlyEnergyData] = []
 
         // Start with 0 at midnight to show beginning of day
         cumulativeData.append(HourlyEnergyData(hour: startOfDay, calories: 0))
 
+        let currentHourStart = calendar.dateInterval(of: .hour, for: now)!.start
+
         var runningTotal: Double = 0
         for data in hourlyData.sorted(by: { $0.hour < $1.hour }) {
             runningTotal += data.calories
-            // Move timestamp to end of hour
-            let endOfHour = calendar.date(byAdding: .hour, value: 1, to: data.hour)!
-            cumulativeData.append(HourlyEnergyData(hour: endOfHour, calories: runningTotal))
+
+            // For complete hours, use end of hour; for current incomplete hour, use start
+            let isCurrentHour = data.hour == currentHourStart
+            let timestamp = isCurrentHour ? data.hour : calendar.date(byAdding: .hour, value: 1, to: data.hour)!
+            cumulativeData.append(HourlyEnergyData(hour: timestamp, calories: runningTotal))
         }
 
         // Total is the final cumulative value
