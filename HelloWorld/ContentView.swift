@@ -84,7 +84,7 @@ struct EnergyChartView: View {
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
         }
         // Average data - rest of day (lighter gray)
-        ForEach(averageHourlyData.filter { $0.hour > startOfCurrentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour >= startOfCurrentHour }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
                 .foregroundStyle(Color(.systemGray6))
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
