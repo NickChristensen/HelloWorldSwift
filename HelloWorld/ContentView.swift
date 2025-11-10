@@ -259,6 +259,61 @@ struct EnergyChartView: View {
     }
 }
 
+/// Reusable view combining statistics header and energy chart
+/// Can be used in both main app and widgets
+struct EnergyTrendView: View {
+    let todayTotal: Double
+    let averageAtCurrentHour: Double
+    let todayHourlyData: [HourlyEnergyData]
+    let averageHourlyData: [HourlyEnergyData]
+    let moveGoal: Double
+    let projectedTotal: Double
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Today vs Average statistics
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Circle()
+                            .fill(activeEnergyColor)
+                            .frame(width: 8, height: 8)
+                        Text("Today")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("\(Int(todayTotal)) cal")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Circle()
+                            .fill(.gray)
+                            .frame(width: 8, height: 8)
+                        Text("Average")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("\(Int(averageAtCurrentHour)) cal")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Energy Trend Chart
+            EnergyChartView(
+                todayHourlyData: todayHourlyData,
+                averageHourlyData: averageHourlyData,
+                moveGoal: moveGoal,
+                projectedTotal: projectedTotal
+            )
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var healthKitManager = HealthKitManager()
     @State private var authorizationRequested = false
@@ -268,50 +323,14 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 20) {
             if healthKitManager.isAuthorized {
-                VStack(spacing: 16) {
-                    // Today vs Average vs Total
-                    VStack(spacing: 12) {
-                        HStack(spacing: 20) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Circle()
-                                        .fill(activeEnergyColor)
-                                        .frame(width: 8, height: 8)
-                                    Text("Today")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text("\(Int(healthKitManager.todayTotal)) cal")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Circle()
-                                        .fill(.gray)
-                                        .frame(width: 8, height: 8)
-                                    Text("Average")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text("\(Int(healthKitManager.averageAtCurrentHour)) cal")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                    }
-
-                    // Energy Trend Chart
-                    EnergyChartView(
-                        todayHourlyData: healthKitManager.todayHourlyData,
-                        averageHourlyData: healthKitManager.averageHourlyData,
-                        moveGoal: healthKitManager.moveGoal,
-                        projectedTotal: healthKitManager.projectedTotal
-                    )
-                }
+                EnergyTrendView(
+                    todayTotal: healthKitManager.todayTotal,
+                    averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
+                    todayHourlyData: healthKitManager.todayHourlyData,
+                    averageHourlyData: healthKitManager.averageHourlyData,
+                    moveGoal: healthKitManager.moveGoal,
+                    projectedTotal: healthKitManager.projectedTotal
+                )
             } else if authorizationRequested {
                 Text("⚠️ Waiting for authorization...")
                     .foregroundStyle(.orange)
