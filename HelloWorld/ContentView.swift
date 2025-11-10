@@ -13,6 +13,76 @@ private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 
 private let goalColor: Color = Color(.systemGray)
 private let lineWidth: CGFloat = 5
 
+/// X-axis labels component (start of day, current hour, end of day)
+private struct ChartXAxisLabels: View {
+    let chartWidth: CGFloat
+
+    private var calendar: Calendar { Calendar.current }
+    private var startOfCurrentHour: Date {
+        let now = Date()
+        return calendar.dateInterval(of: .hour, for: now)!.start
+    }
+
+    private func labelCollisions(chartWidth: CGFloat) -> (hidesStart: Bool, hidesEnd: Bool) {
+        let startOfDay = calendar.startOfDay(for: Date())
+        let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+        let dayDuration = TimeInterval(24 * 60 * 60)
+        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+
+        let labelWidth: CGFloat = 40
+        let minSeparation: CGFloat = 8
+
+        let currentHourLeft = currentHourPosition - labelWidth / 2
+        let currentHourRight = currentHourPosition + labelWidth / 2
+
+        let startLabelRight = labelWidth
+        let hidesStart = currentHourLeft < (startLabelRight + minSeparation)
+
+        let endLabelLeft = chartWidth - labelWidth
+        let hidesEnd = currentHourRight > (endLabelLeft - minSeparation)
+
+        return (hidesStart, hidesEnd)
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            let startOfDay = calendar.startOfDay(for: Date())
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+            let collisions = labelCollisions(chartWidth: chartWidth)
+
+            // Start of day - left aligned (hide if collides with current hour)
+            if !collisions.hidesStart {
+                Text(startOfDay, format: .dateTime.hour())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // Current hour - aligned to edge if replacing start/end, otherwise centered
+            Text(startOfCurrentHour, format: .dateTime.hour())
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: collisions.hidesStart ? .leading : (collisions.hidesEnd ? .trailing : .center))
+                .offset(x: (!collisions.hidesStart && !collisions.hidesEnd) ? {
+                    let startOfDay = calendar.startOfDay(for: Date())
+                    let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+                    let dayDuration = TimeInterval(24 * 60 * 60)
+                    let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+                    return currentHourPosition - chartWidth / 2
+                }() : 0)
+
+            // End of day - right aligned (hide if collides with current hour)
+            if !collisions.hidesEnd {
+                Text(endOfDay, format: .dateTime.hour())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .frame(height: 20) // Fixed height for labels
+    }
+}
+
 struct EnergyChartView: View {
     let todayHourlyData: [HourlyEnergyData]
     let averageHourlyData: [HourlyEnergyData]
@@ -20,7 +90,6 @@ struct EnergyChartView: View {
     let projectedTotal: Double
 
     // Chart layout constants
-    private let chartHeight: CGFloat = 300
     private let labelOffset: CGFloat = 4 // Vertical offset from line to label
     private let labelPadding: CGFloat = 2
 
@@ -33,7 +102,7 @@ struct EnergyChartView: View {
     }
 
     // Calculate max value for chart Y-axis with padding when label is above
-    private var chartMaxValue: Double {
+    private func chartMaxValue(chartHeight: CGFloat) -> Double {
         let baseMax = max(
             todayHourlyData.last?.calories ?? 0,
             averageHourlyData.last?.calories ?? 0,
@@ -49,31 +118,6 @@ struct EnergyChartView: View {
         return baseMax + extraSpaceForLabel
     }
 
-    // Check if current hour label would overlap with start/end labels
-    private func labelCollisions(chartWidth: CGFloat) -> (hidesStart: Bool, hidesEnd: Bool) {
-        let startOfDay = calendar.startOfDay(for: Date())
-        let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
-        let dayDuration = TimeInterval(24 * 60 * 60)
-        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
-
-        // Estimate label widths and minimum spacing
-        let labelWidth: CGFloat = 40
-        let minSeparation: CGFloat = 8
-
-        // Calculate boundaries for current hour label
-        let currentHourLeft = currentHourPosition - labelWidth / 2
-        let currentHourRight = currentHourPosition + labelWidth / 2
-
-        // Check collision with start label (left edge + label width)
-        let startLabelRight = labelWidth
-        let hidesStart = currentHourLeft < (startLabelRight + minSeparation)
-
-        // Check collision with end label (right edge - label width)
-        let endLabelLeft = chartWidth - labelWidth
-        let hidesEnd = currentHourRight > (endLabelLeft - minSeparation)
-
-        return (hidesStart, hidesEnd)
-    }
 
     @ChartContentBuilder
     private var averageLines: some ChartContent {
@@ -133,127 +177,96 @@ struct EnergyChartView: View {
     }
 
     var body: some View {
-        Chart {
-            nowLine
-            averageLines
-            averagePoint
-            todayLine
-            todayPoint
-            goalLine
-        }
-        .frame(height: chartHeight)
-        .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
-        .chartYScale(domain: 0...chartMaxValue)
-        .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 1)) { value in
-                if let date = value.as(Date.self) {
-                    let startOfDay = calendar.startOfDay(for: Date())
-                    let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        GeometryReader { geometry in
+            let chartWidth = geometry.size.width
+            let chartHeight = geometry.size.height
+            let maxValue = chartMaxValue(chartHeight: chartHeight)
 
-                    // Check if this is a labeled hour (start of day, current hour, or end of day)
-                    let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
-                    let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
-                    let isCurrentHour = abs(date.timeIntervalSince(startOfCurrentHour)) < 60
-                    let isLabeledHour = isStartOfDay || isEndOfDay || isCurrentHour
-
-                    if isLabeledHour {
-                        // Labeled hours: tick line
-                        AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
-                            .offset(CGSize(width: 0, height: 8))
-                    } else {
-                        // Unlabeled hours: dot
-                        AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
-                            .offset(CGSize(width: 0, height: 11))
-                    }
+            VStack(spacing: 0) {
+                // Chart with flexible height
+                Chart {
+                    nowLine
+                    averageLines
+                    averagePoint
+                    todayLine
+                    todayPoint
+                    goalLine
                 }
-            }
-        }
-        .chartYAxis {
-            AxisMarks {}
-        }
-        .overlay {
-            GeometryReader { geometry in
-                let chartWidth = geometry.size.width
-                let maxValue = chartMaxValue
+                .frame(maxHeight: .infinity)
+                .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
+                .chartYScale(domain: 0...maxValue)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .hour, count: 1)) { value in
+                        if let date = value.as(Date.self) {
+                            let startOfDay = calendar.startOfDay(for: Date())
+                            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
-                // Goal label
-                if moveGoal > 0 {
-                    let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
+                            // Check if this is a labeled hour (start of day, current hour, or end of day)
+                            let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
+                            let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
+                            let isCurrentHour = abs(date.timeIntervalSince(startOfCurrentHour)) < 60
+                            let isLabeledHour = isStartOfDay || isEndOfDay || isCurrentHour
 
-                    Text("\(Int(moveGoal)) cal")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundStyle(goalColor)
-                        .padding(labelPadding)
-                        .background(.background.opacity(0.5))
-                        .cornerRadius(4)
-                        .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
-
-                // Total label (positioned at right side, above/below line based on goal)
-                if projectedTotal > 0 {
-                    let totalYPosition = chartHeight * (1 - projectedTotal / maxValue)
-                    // Position above line if exceeding goal, below if not
-                    // When above: subtract offset + label height; when below: add offset only
-                    let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
-                    let labelHeight = captionFont.lineHeight + (labelPadding * 2)
-                    let yOffset = projectedTotal > moveGoal
-                        ? totalYPosition - labelOffset - labelHeight
-                        : totalYPosition + labelOffset
-
-                    Text("\(Int(projectedTotal)) cal")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundStyle(goalColor)
-                        .padding(labelPadding)
-                        .background(.background.opacity(0.5))
-                        .cornerRadius(4)
-                        .offset(x: (labelPadding), y: yOffset)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-
-                // X-axis labels (positioned below chart)
-                VStack {
-                    Spacer()
-                    ZStack(alignment: .bottom) {
-                        let startOfDay = calendar.startOfDay(for: Date())
-                        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-                        let collisions = labelCollisions(chartWidth: chartWidth)
-
-                        // Start of day - left aligned (hide if collides with current hour)
-                        if !collisions.hidesStart {
-                            Text(startOfDay, format: .dateTime.hour())
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        // Current hour - aligned to edge if replacing start/end, otherwise centered
-                        Text(startOfCurrentHour, format: .dateTime.hour())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: collisions.hidesStart ? .leading : (collisions.hidesEnd ? .trailing : .center))
-                            .offset(x: (!collisions.hidesStart && !collisions.hidesEnd) ? {
-                                // Center at natural position only if not replacing an edge label
-                                let startOfDay = calendar.startOfDay(for: Date())
-                                let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
-                                let dayDuration = TimeInterval(24 * 60 * 60)
-                                let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
-                                return currentHourPosition - chartWidth / 2
-                            }() : 0)
-
-                        // End of day - right aligned (hide if collides with current hour)
-                        if !collisions.hidesEnd {
-                            Text(endOfDay, format: .dateTime.hour())
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
+                            if isLabeledHour {
+                                // Labeled hours: tick line
+                                AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                                    .offset(CGSize(width: 0, height: 8))
+                            } else {
+                                // Unlabeled hours: dot
+                                AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                                    .offset(CGSize(width: 0, height: 11))
+                            }
                         }
                     }
-                    .offset(y: 8) // Match tick offset
                 }
-                .padding(.bottom, -20) // Position below axis ticks
+                .chartYAxis {
+                    AxisMarks {}
+                }
+                .overlay {
+                    // Goal and Total labels
+                    VStack {
+                        HStack {
+                            // Goal label
+                            if moveGoal > 0 {
+                                let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
+
+                                Text("\(Int(moveGoal)) cal")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(goalColor)
+                                    .padding(labelPadding)
+                                    .background(.background.opacity(0.5))
+                                    .cornerRadius(4)
+                                    .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            }
+
+                            // Total label (positioned at right side, above/below line based on goal)
+                            if projectedTotal > 0 {
+                                let totalYPosition = chartHeight * (1 - projectedTotal / maxValue)
+                                let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
+                                let labelHeight = captionFont.lineHeight + (labelPadding * 2)
+                                let yOffset = projectedTotal > moveGoal
+                                    ? totalYPosition - labelOffset - labelHeight
+                                    : totalYPosition + labelOffset
+
+                                Text("\(Int(projectedTotal)) cal")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(goalColor)
+                                    .padding(labelPadding)
+                                    .background(.background.opacity(0.5))
+                                    .cornerRadius(4)
+                                    .offset(x: (labelPadding), y: yOffset)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                        }
+                    }
+                }
+
+                // X-axis labels below chart (fixed height)
+                ChartXAxisLabels(chartWidth: chartWidth)
+                    .padding(.top, 8)
             }
         }
     }
@@ -261,6 +274,7 @@ struct EnergyChartView: View {
 
 /// Reusable view combining statistics header and energy chart
 /// Can be used in both main app and widgets
+/// Uses flexible height layout to adapt to container size
 struct EnergyTrendView: View {
     let todayTotal: Double
     let averageAtCurrentHour: Double
@@ -271,7 +285,7 @@ struct EnergyTrendView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Today vs Average statistics
+            // Header with statistics (fixed height)
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -302,15 +316,18 @@ struct EnergyTrendView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
 
-            // Energy Trend Chart
+            // Energy Trend Chart (flexible height - takes remaining space)
             EnergyChartView(
                 todayHourlyData: todayHourlyData,
                 averageHourlyData: averageHourlyData,
                 moveGoal: moveGoal,
                 projectedTotal: projectedTotal
             )
+            .frame(maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity)
     }
 }
 
