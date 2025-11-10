@@ -389,16 +389,31 @@ struct ContentView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 32) {
                 if healthKitManager.isAuthorized {
-                    EnergyTrendView(
-                        todayTotal: healthKitManager.todayTotal,
-                        averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
-                        todayHourlyData: healthKitManager.todayHourlyData,
-                        averageHourlyData: healthKitManager.averageHourlyData,
-                        moveGoal: healthKitManager.moveGoal,
-                        projectedTotal: healthKitManager.projectedTotal
-                    )
+                    // Medium Widget Preview
+                    WidgetPreviewContainer(family: .systemMedium, label: "Medium Widget") {
+                        EnergyTrendView(
+                            todayTotal: healthKitManager.todayTotal,
+                            averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
+                            todayHourlyData: healthKitManager.todayHourlyData,
+                            averageHourlyData: healthKitManager.averageHourlyData,
+                            moveGoal: healthKitManager.moveGoal,
+                            projectedTotal: healthKitManager.projectedTotal
+                        )
+                    }
+
+                    // Large Widget Preview
+                    WidgetPreviewContainer(family: .systemLarge, label: "Large Widget") {
+                        EnergyTrendView(
+                            todayTotal: healthKitManager.todayTotal,
+                            averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
+                            todayHourlyData: healthKitManager.todayHourlyData,
+                            averageHourlyData: healthKitManager.averageHourlyData,
+                            moveGoal: healthKitManager.moveGoal,
+                            projectedTotal: healthKitManager.projectedTotal
+                        )
+                    }
                 } else if authorizationRequested {
                     Text("⚠️ Waiting for authorization...")
                         .foregroundStyle(.orange)
