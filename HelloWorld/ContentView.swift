@@ -284,37 +284,56 @@ struct EnergyTrendView: View {
     let projectedTotal: Double
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
             // Header with statistics (fixed height)
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+            HStack(spacing: 0) {
+                Spacer()
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 4) {
                         Circle()
                             .fill(activeEnergyColor)
                             .frame(width: 8, height: 8)
                         Text("Today")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .fontDesign(.rounded)
+                            .foregroundStyle(activeEnergyColor)
                     }
-                    Text("\(Int(todayTotal)) cal")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text(Int(todayTotal), format: .number)
+                            .font(.title2)
+                            .fontDesign(.rounded)
+                            .foregroundStyle(activeEnergyColor)
+                            .fontWeight(.bold)
+                        Text("cal")
+                            .fontDesign(.rounded)
+                            .foregroundStyle(activeEnergyColor)
+                            .fontWeight(.bold)
+                   }
+                 }
+                Spacer()
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 4) {
                         Circle()
-                            .fill(.gray)
+                            .fill(.secondary)
                             .frame(width: 8, height: 8)
                         Text("Average")
                             .font(.subheadline)
+                            .fontDesign(.rounded)
                             .foregroundStyle(.secondary)
                     }
-                    Text("\(Int(averageAtCurrentHour)) cal")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text(Int(averageAtCurrentHour), format: .number)
+                            .font(.title2)
+                            .fontDesign(.rounded)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.secondary)
+                        Text("cal")
+                            .fontDesign(.rounded)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Spacer()
             }
             .fixedSize(horizontal: false, vertical: true)
 
