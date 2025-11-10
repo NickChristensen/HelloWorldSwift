@@ -321,77 +321,79 @@ struct ContentView: View {
     @State private var dataGenerated = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            if healthKitManager.isAuthorized {
-                EnergyTrendView(
-                    todayTotal: healthKitManager.todayTotal,
-                    averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
-                    todayHourlyData: healthKitManager.todayHourlyData,
-                    averageHourlyData: healthKitManager.averageHourlyData,
-                    moveGoal: healthKitManager.moveGoal,
-                    projectedTotal: healthKitManager.projectedTotal
-                )
-            } else if authorizationRequested {
-                Text("⚠️ Waiting for authorization...")
-                    .foregroundStyle(.orange)
-            } else {
-                Text("Needs HealthKit access")
-                    .foregroundStyle(.secondary)
-            }
-
-            // Sample data generation button (for development/testing)
-            // Only show in simulator, not on real devices
-            #if targetEnvironment(simulator)
-            if healthKitManager.isAuthorized {
-                Divider()
-                    .padding(.vertical)
-
-                VStack(spacing: 12) {
-                    Text("Development Tools")
-                        .font(.headline)
+        ScrollView {
+            VStack(spacing: 20) {
+                if healthKitManager.isAuthorized {
+                    EnergyTrendView(
+                        todayTotal: healthKitManager.todayTotal,
+                        averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
+                        todayHourlyData: healthKitManager.todayHourlyData,
+                        averageHourlyData: healthKitManager.averageHourlyData,
+                        moveGoal: healthKitManager.moveGoal,
+                        projectedTotal: healthKitManager.projectedTotal
+                    )
+                } else if authorizationRequested {
+                    Text("⚠️ Waiting for authorization...")
+                        .foregroundStyle(.orange)
+                } else {
+                    Text("Needs HealthKit access")
                         .foregroundStyle(.secondary)
+                }
 
-                    Button(action: {
-                        Task {
-                            isGeneratingData = true
-                            do {
-                                try await healthKitManager.generateSampleData()
-                                // Refresh data after generating
-                                try await healthKitManager.fetchEnergyData()
-                                try await healthKitManager.fetchMoveGoal()
-                                dataGenerated = true
-                            } catch {
-                                print("Failed to generate sample data: \(error)")
-                            }
-                            isGeneratingData = false
-                        }
-                    }) {
-                        HStack {
-                            if isGeneratingData {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .padding(.trailing, 4)
-                            }
-                            Text(isGeneratingData ? "Generating..." : "Generate Sample Data")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundStyle(.white)
-                        .cornerRadius(10)
-                    }
-                    .disabled(isGeneratingData)
+                // Sample data generation button (for development/testing)
+                // Only show in simulator, not on real devices
+                #if targetEnvironment(simulator)
+                if healthKitManager.isAuthorized {
+                    Divider()
+                        .padding(.vertical)
 
-                    if dataGenerated {
-                        Text("✓ Sample data added to Health app")
-                            .font(.caption)
-                            .foregroundStyle(.green)
+                    VStack(spacing: 12) {
+                        Text("Development Tools")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+
+                        Button(action: {
+                            Task {
+                                isGeneratingData = true
+                                do {
+                                    try await healthKitManager.generateSampleData()
+                                    // Refresh data after generating
+                                    try await healthKitManager.fetchEnergyData()
+                                    try await healthKitManager.fetchMoveGoal()
+                                    dataGenerated = true
+                                } catch {
+                                    print("Failed to generate sample data: \(error)")
+                                }
+                                isGeneratingData = false
+                            }
+                        }) {
+                            HStack {
+                                if isGeneratingData {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .padding(.trailing, 4)
+                                }
+                                Text(isGeneratingData ? "Generating..." : "Generate Sample Data")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(isGeneratingData)
+
+                        if dataGenerated {
+                            Text("✓ Sample data added to Health app")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
                     }
                 }
+                #endif
             }
-            #endif
+            .padding()
         }
-        .padding()
         .task {
             // Request HealthKit authorization when view appears
             guard !authorizationRequested else { return }
