@@ -9,6 +9,9 @@ We track work in Beads instead of Markdown. Check the `beads://quickstart` resou
   - Close completed issues using the `mcp__plugin_beads_beads__close` tool
   - Update in-progress work using the `mcp__plugin_beads_beads__update` tool with `status: "in_progress"`
   - This ensures issues.jsonl stays in sync with code changes
+- **Always include .beads/issues.jsonl in commits**
+  - Add it together with code changes: `git add <files> .beads/issues.jsonl`
+  - This prevents pre-push hook errors requiring a separate commit
 
 ### Documentation
 - **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
