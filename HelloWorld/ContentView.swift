@@ -327,6 +327,7 @@ struct EnergyTrendView: View {
             )
             .frame(maxHeight: .infinity)
         }
+        .padding(16)
         .frame(maxHeight: .infinity)
     }
 }
