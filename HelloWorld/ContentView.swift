@@ -101,21 +101,14 @@ struct EnergyChartView: View {
         return calendar.dateInterval(of: .hour, for: now)!.start
     }
 
-    // Calculate max value for chart Y-axis with padding when label is above
+    // Calculate max value for chart Y-axis
     private func chartMaxValue(chartHeight: CGFloat) -> Double {
-        let baseMax = max(
+        return max(
             todayHourlyData.last?.calories ?? 0,
             averageHourlyData.last?.calories ?? 0,
             moveGoal,
             projectedTotal
         )
-        // Add padding when projectedTotal label is above the line
-        // Use UIFont to get actual caption font metrics
-        let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
-        let labelHeight = captionFont.lineHeight + (labelPadding * 2)
-        let totalSpaceNeeded = labelHeight + labelOffset
-        let extraSpaceForLabel = projectedTotal > moveGoal ? (totalSpaceNeeded / chartHeight) * baseMax : 0
-        return baseMax + extraSpaceForLabel
     }
 
 
@@ -223,44 +216,19 @@ struct EnergyChartView: View {
                     AxisMarks {}
                 }
                 .overlay {
-                    // Goal and Total labels
-                    VStack {
-                        HStack {
-                            // Goal label
-                            if moveGoal > 0 {
-                                let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
+                    // Goal label
+                    if moveGoal > 0 {
+                        let goalYPosition = chartHeight * (1 - moveGoal / maxValue)
 
-                                Text("\(Int(moveGoal)) cal")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(goalColor)
-                                    .padding(labelPadding)
-                                    .background(.background.opacity(0.5))
-                                    .cornerRadius(4)
-                                    .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            }
-
-                            // Total label (positioned at right side, above/below line based on goal)
-                            if projectedTotal > 0 {
-                                let totalYPosition = chartHeight * (1 - projectedTotal / maxValue)
-                                let captionFont = UIFont.preferredFont(forTextStyle: .caption1)
-                                let labelHeight = captionFont.lineHeight + (labelPadding * 2)
-                                let yOffset = projectedTotal > moveGoal
-                                    ? totalYPosition - labelOffset - labelHeight
-                                    : totalYPosition + labelOffset
-
-                                Text("\(Int(projectedTotal)) cal")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(goalColor)
-                                    .padding(labelPadding)
-                                    .background(.background.opacity(0.5))
-                                    .cornerRadius(4)
-                                    .offset(x: (labelPadding), y: yOffset)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                        }
+                        Text("\(Int(moveGoal)) cal")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundStyle(goalColor)
+                            .padding(labelPadding)
+                            .background(.background.opacity(0.5))
+                            .cornerRadius(4)
+                            .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
 
@@ -287,7 +255,6 @@ struct EnergyTrendView: View {
         VStack(spacing: 8) {
             // Header with statistics (fixed height)
             HStack(spacing: 0) {
-                Spacer()
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 4) {
                         Circle()
@@ -310,7 +277,8 @@ struct EnergyTrendView: View {
                             .fontWeight(.bold)
                    }
                  }
-                Spacer()
+                 .frame(maxWidth: .infinity)
+
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 4) {
                         Circle()
@@ -333,7 +301,31 @@ struct EnergyTrendView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Spacer()
+                .frame(maxWidth: .infinity)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.secondary)
+                            .frame(width: 8, height: 8)
+                        Text("Daily")
+                            .font(.subheadline)
+                            .fontDesign(.rounded)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text(Int(projectedTotal), format: .number)
+                            .font(.title2)
+                            .fontDesign(.rounded)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.secondary)
+                        Text("cal")
+                            .fontDesign(.rounded)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
             .fixedSize(horizontal: false, vertical: true)
 
