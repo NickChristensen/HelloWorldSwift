@@ -13,6 +13,10 @@ We track work in Beads instead of Markdown. Check the `beads://quickstart` resou
   - Add it together with code changes: `git add <files> .beads/issues.jsonl`
   - This prevents pre-push hook errors requiring a separate commit
 
+### Issue Tracking
+- **When you create an issue, output the new issue _verbatim_ to me, not a summary.**
+- **When you update an issue, use your diff tool to show the issue with diffs highlighted**
+
 ### Documentation
 - **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
   - Use it to look up APIs, best practices, and implementation details
