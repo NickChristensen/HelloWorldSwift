@@ -240,6 +240,47 @@ struct EnergyChartView: View {
     }
 }
 
+/// Single statistic display with colored indicator and value
+struct HeaderStatistic: View {
+    let label: String
+    let statistic: Double
+    let color: Color
+    let circleColor: Color
+
+    init(label: String, statistic: Double, color: Color, circleColor: Color? = nil) {
+        self.label = label
+        self.statistic = statistic
+        self.color = color
+        self.circleColor = circleColor ?? color
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(circleColor)
+                    .frame(width: 10, height: 10)
+                Text(label)
+                    .font(.caption)
+                    .fontDesign(.rounded)
+                    .foregroundStyle(color)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(Int(statistic), format: .number)
+                    .font(.title2)
+                    .fontDesign(.rounded)
+                    .fontWeight(.bold)
+                    .foregroundStyle(color)
+                Text("cal")
+                    .font(.caption)
+                    .fontDesign(.rounded)
+                    .fontWeight(.bold)
+                    .foregroundStyle(color)
+            }
+        }
+    }
+}
+
 /// Reusable view combining statistics header and energy chart
 /// Can be used in both main app and widgets
 /// Uses flexible height layout to adapt to container size
@@ -255,77 +296,14 @@ struct EnergyTrendView: View {
         VStack(spacing: 8) {
             // Header with statistics (fixed height)
             HStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(activeEnergyColor)
-                            .frame(width: 8, height: 8)
-                        Text("Today")
-                            .font(.subheadline)
-                            .fontDesign(.rounded)
-                            .foregroundStyle(activeEnergyColor)
-                    }
-                    HStack(alignment: .bottom, spacing: 4) {
-                        Text(Int(todayTotal), format: .number)
-                            .font(.title2)
-                            .fontDesign(.rounded)
-                            .foregroundStyle(activeEnergyColor)
-                            .fontWeight(.bold)
-                        Text("cal")
-                            .fontDesign(.rounded)
-                            .foregroundStyle(activeEnergyColor)
-                            .fontWeight(.bold)
-                   }
-                 }
-                 .frame(maxWidth: .infinity)
+                HeaderStatistic(label: "Today", statistic: todayTotal, color: activeEnergyColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(.secondary)
-                            .frame(width: 8, height: 8)
-                        Text("Average")
-                            .font(.subheadline)
-                            .fontDesign(.rounded)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(alignment: .bottom, spacing: 4) {
-                        Text(Int(averageAtCurrentHour), format: .number)
-                            .font(.title2)
-                            .fontDesign(.rounded)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                        Text("cal")
-                            .fontDesign(.rounded)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                HeaderStatistic(label: "Average", statistic: averageAtCurrentHour, color: Color(.systemGray))
+                    .frame(maxWidth: .infinity, alignment: .center)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(.secondary)
-                            .frame(width: 8, height: 8)
-                        Text("Daily")
-                            .font(.subheadline)
-                            .fontDesign(.rounded)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(alignment: .bottom, spacing: 4) {
-                        Text(Int(projectedTotal), format: .number)
-                            .font(.title2)
-                            .fontDesign(.rounded)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                        Text("cal")
-                            .fontDesign(.rounded)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                HeaderStatistic(label: "Total", statistic: projectedTotal, color: Color(.systemGray2), circleColor: Color(.systemGray4))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .fixedSize(horizontal: false, vertical: true)
 
