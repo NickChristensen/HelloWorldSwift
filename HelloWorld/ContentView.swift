@@ -11,7 +11,7 @@ import Charts
 
 private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 1/255)
 private let goalColor: Color = Color(.systemGray)
-private let lineWidth: CGFloat = 5
+private let lineWidth: CGFloat = 4
 
 /// X-axis labels component (start of day, current hour, end of day)
 private struct ChartXAxisLabels: View {
@@ -30,7 +30,7 @@ private struct ChartXAxisLabels: View {
         let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
 
         let labelWidth: CGFloat = 40
-        let minSeparation: CGFloat = 8
+        let minSeparation: CGFloat = 4
 
         let currentHourLeft = currentHourPosition - labelWidth / 2
         let currentHourRight = currentHourPosition + labelWidth / 2
@@ -79,7 +79,7 @@ private struct ChartXAxisLabels: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .frame(height: 20) // Fixed height for labels
+        .frame(height: 20, alignment: .bottom) // Fixed height for labels
     }
 }
 
@@ -90,8 +90,6 @@ struct EnergyChartView: View {
     let projectedTotal: Double
 
     // Chart layout constants
-    private let labelOffset: CGFloat = 4 // Vertical offset from line to label
-    private let labelPadding: CGFloat = 2
 
     private var calendar: Calendar { Calendar.current }
     private var currentHour: Int { calendar.component(.hour, from: Date()) }
@@ -224,10 +222,13 @@ struct EnergyChartView: View {
                             .font(.caption)
                             .fontWeight(.bold)
                             .foregroundStyle(goalColor)
-                            .padding(labelPadding)
+                            .padding(2)
                             .background(.background.opacity(0.5))
                             .cornerRadius(4)
-                            .offset(x: (labelPadding * -1), y: goalYPosition + labelOffset)
+                            .offset(
+                                x: -2 /* padding */,
+                                y: goalYPosition
+                            )
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
@@ -293,31 +294,35 @@ struct EnergyTrendView: View {
     let projectedTotal: Double
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header with statistics (fixed height)
-            HStack(spacing: 0) {
-                HeaderStatistic(label: "Today", statistic: todayTotal, color: activeEnergyColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        GeometryReader { geometry in
+            let spacing = geometry.size.height > 300 ? 16.0 : 8.0
 
-                HeaderStatistic(label: "Average", statistic: averageAtCurrentHour, color: Color(.systemGray))
-                    .frame(maxWidth: .infinity, alignment: .center)
+            VStack(spacing: spacing) {
+                // Header with statistics (fixed height)
+                HStack(spacing: 0) {
+                    HeaderStatistic(label: "Today", statistic: todayTotal, color: activeEnergyColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                HeaderStatistic(label: "Total", statistic: projectedTotal, color: Color(.systemGray2), circleColor: Color(.systemGray4))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    HeaderStatistic(label: "Average", statistic: averageAtCurrentHour, color: Color(.systemGray))
+                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    HeaderStatistic(label: "Total", statistic: projectedTotal, color: Color(.systemGray2), circleColor: Color(.systemGray4))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+
+                // Energy Trend Chart (flexible height - takes remaining space)
+                EnergyChartView(
+                    todayHourlyData: todayHourlyData,
+                    averageHourlyData: averageHourlyData,
+                    moveGoal: moveGoal,
+                    projectedTotal: projectedTotal
+                )
+                .frame(maxHeight: .infinity)
             }
-            .fixedSize(horizontal: false, vertical: true)
-
-            // Energy Trend Chart (flexible height - takes remaining space)
-            EnergyChartView(
-                todayHourlyData: todayHourlyData,
-                averageHourlyData: averageHourlyData,
-                moveGoal: moveGoal,
-                projectedTotal: projectedTotal
-            )
-            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.vertical, spacing)
         }
-        .padding(16)
-        .frame(maxHeight: .infinity)
     }
 }
 
