@@ -5,6 +5,8 @@
 We track work in Beads instead of Markdown. Check the `beads://quickstart` resource to learn the workflow.
 
 ### Git Commits
+- **Don't be overeager to commit**
+  - Don't assume that the user is ready to commit changes, they will tell you when it is time
 - **Always update beads task status before every git commit**
   - Close completed issues using the `mcp__plugin_beads_beads__close` tool
   - Update in-progress work using the `mcp__plugin_beads_beads__update` tool with `status: "in_progress"`
