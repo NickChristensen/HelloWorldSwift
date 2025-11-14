@@ -128,10 +128,26 @@ struct EnergyChartView: View {
 
     @ChartContentBuilder
     private var todayLine: some ChartContent {
-        ForEach(todayHourlyData) { data in
-            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "Today"))
+        // Split data into completed hours (solid line) and current hour (dashed line)
+        let completedData = todayHourlyData.filter { $0.hour <= startOfCurrentHour }
+        let inProgressData = todayHourlyData.filter { $0.hour > startOfCurrentHour }
+
+        // Completed hours - solid line
+        ForEach(completedData) { data in
+            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "TodayCompleted"))
                 .foregroundStyle(activeEnergyColor)
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+        }
+
+        // Current hour progress - dashed line with lighter color
+        // Need to connect from last completed hour to current progress
+        if let lastCompleted = completedData.last, let currentProgress = inProgressData.first {
+            LineMark(x: .value("Hour", lastCompleted.hour), y: .value("Calories", lastCompleted.calories), series: .value("Series", "TodayInProgress"))
+                .foregroundStyle(activeEnergyColor.opacity(0.6))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: [6, 3]))
+            LineMark(x: .value("Hour", currentProgress.hour), y: .value("Calories", currentProgress.calories), series: .value("Series", "TodayInProgress"))
+                .foregroundStyle(activeEnergyColor.opacity(0.6))
+                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: [6, 3]))
         }
     }
 

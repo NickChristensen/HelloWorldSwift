@@ -216,8 +216,7 @@ final class HealthKitManager: ObservableObject {
 
         let currentHourStart = calendar.dateInterval(of: .hour, for: now)!.start
 
-        // Filter out current incomplete hour for chart display
-        // (we'll include it in total, but not plot it since the hour isn't finished)
+        // Filter out current incomplete hour for completed hours
         let completeHours = hourlyData.filter { $0.hour < currentHourStart }
 
         // Convert to cumulative data (running sum)
@@ -235,9 +234,13 @@ final class HealthKitManager: ObservableObject {
             cumulativeData.append(HourlyEnergyData(hour: timestamp, calories: runningTotal))
         }
 
-        // Calculate total including current hour
+        // Add current hour progress (timestamp = current time, not end of hour)
         let currentHourCalories = hourlyData.first(where: { $0.hour == currentHourStart })?.calories ?? 0
         let total = runningTotal + currentHourCalories
+
+        if currentHourCalories > 0 {
+            cumulativeData.append(HourlyEnergyData(hour: now, calories: total))
+        }
 
         return (total, cumulativeData)
     }
