@@ -160,6 +160,16 @@ final class HealthKitManager: ObservableObject {
         } else {
             self.averageAtCurrentHour = 0
         }
+
+        // Write data to shared container for widget access
+        try? SharedEnergyDataManager.shared.writeEnergyData(
+            todayTotal: self.todayTotal,
+            averageAtCurrentHour: self.averageAtCurrentHour,
+            projectedTotal: self.projectedTotal,
+            moveGoal: self.moveGoal,
+            todayHourlyData: self.todayHourlyData,
+            averageHourlyData: self.averageHourlyData
+        )
     }
 
     // Fetch Move goal from Activity Summary

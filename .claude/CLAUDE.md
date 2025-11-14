@@ -4,9 +4,11 @@
 
 We track work in Beads instead of Markdown. Check the `beads://quickstart` resource to learn the workflow.
 
+### Work completion
+- **Don't be overeager to close tasks or commit changes**
+  - The user will tell you when you are feature-complete, so don't assume that an issue should be closed or work should be staged/commited.
+
 ### Git Commits
-- **Don't be overeager to commit**
-  - Don't assume that the user is ready to commit changes, they will tell you when it is time
 - **Always update beads task status before every git commit**
   - Close completed issues using the `mcp__plugin_beads_beads__close` tool
   - Update in-progress work using the `mcp__plugin_beads_beads__update` tool with `status: "in_progress"`
@@ -16,13 +18,30 @@ We track work in Beads instead of Markdown. Check the `beads://quickstart` resou
   - This prevents pre-push hook errors requiring a separate commit
 
 ### Issue Tracking
-- **When you create an issue, output the new issue _verbatim_ to me, not a summary.**
+- **When you create an issue, output the new issue _verbatim_ to me, not a summary. Output as markdown, not json.**
 - **When you update an issue, use your diff tool to show the issue with diffs highlighted**
 
 ### Documentation
 - **apple-docs MCP server is available** for Swift, SwiftUI, Swift Charts, and other Apple framework documentation
   - Use it to look up APIs, best practices, and implementation details
   - Available tools: search_apple_docs, get_apple_doc_content, list_technologies, etc.
+
+## Development Environment
+- **Default Simulator**: Always use iPhone 17 Pro for builds and testing
+
+## Xcode Project Management
+
+### Adding Targets (Widget Extensions, App Extensions, etc.)
+**Avoid manually editing `project.pbxproj`** when adding new targets like widget extensions. Manual editing is error-prone and leads to issues:
+- Missing required Info.plist keys (like `NSExtension` dictionary)
+- File synchronization conflicts with File System Synchronized Groups
+- Bundle identifier validation problems
+- Build phase configuration errors
+
+**Better approaches:**
+1. **Preferred**: Use Xcode GUI to add targets (File > New > Target > Widget Extension)
+2. **Alternative**: Use scaffolding tools like `mcp__XcodeBuildMCP__scaffold_ios_project`
+3. **Last resort**: Only manually edit `.pbxproj` for small tweaks after target is created
 
 ## Terminology
 This document defines the key metrics used throughout the app to avoid confusion.
