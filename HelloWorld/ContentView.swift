@@ -144,6 +144,28 @@ struct EnergyChartView: View {
         calendar.dateInterval(of: .hour, for: now)!.start
     }
 
+    /// Renders an hourly tick mark with appropriate styling
+    /// Returns nothing if the hour is too close to NOW (within 20 minutes)
+    @AxisMarkBuilder
+    private func hourlyTickMark(for date: Date, startOfDay: Date, endOfDay: Date, collisions: (hidesStart: Bool, hidesEnd: Bool), now: Date) -> some AxisMark {
+        let minutesFromNow = abs(date.timeIntervalSince(now)) / 60
+        if minutesFromNow >= 20 {
+            let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
+            let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
+            let showTickLine = (isStartOfDay && !collisions.hidesStart) || (isEndOfDay && !collisions.hidesEnd)
+
+            if showTickLine {
+                // Visible labeled hours: tick line
+                AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .offset(CGSize(width: 0, height: 8))
+            } else {
+                // Unlabeled hours or hidden labels: dot
+                AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .offset(CGSize(width: 0, height: 11))
+            }
+        }
+    }
+
     // Calculate max value for chart Y-axis
     private func chartMaxValue(chartHeight: CGFloat) -> Double {
         return max(
@@ -234,29 +256,22 @@ struct EnergyChartView: View {
                 .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
                 .chartYScale(domain: 0...maxValue)
                 .chartXAxis {
+                    // Calculate constants once (not 24 times per render!)
+                    let startOfDay = calendar.startOfDay(for: Date())
+                    let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+                    let collisions = calculateLabelCollisions(chartWidth: chartWidth, now: now)
+
+                    // Hourly tick marks
                     AxisMarks(values: .stride(by: .hour, count: 1)) { value in
                         if let date = value.as(Date.self) {
-                            let startOfDay = calendar.startOfDay(for: Date())
-                            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-                            let collisions = calculateLabelCollisions(chartWidth: chartWidth, now: now)
-
-                            // Check if this is a labeled hour (start of day or end of day)
-                            let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
-                            let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
-
-                            // Only show tick line if it's a labeled hour AND its label is visible (not hidden by collision)
-                            let showTickLine = (isStartOfDay && !collisions.hidesStart) || (isEndOfDay && !collisions.hidesEnd)
-
-                            if showTickLine {
-                                // Visible labeled hours: tick line
-                                AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
-                                    .offset(CGSize(width: 0, height: 8))
-                            } else {
-                                // Unlabeled hours or hidden labels: dot
-                                AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
-                                    .offset(CGSize(width: 0, height: 11))
-                            }
+                            hourlyTickMark(for: date, startOfDay: startOfDay, endOfDay: endOfDay, collisions: collisions, now: now)
                         }
+                    }
+
+                    // NOW tick mark (matches labeled hour styling)
+                    AxisMarks(values: [now]) { _ in
+                        AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .offset(CGSize(width: 0, height: 8))
                     }
                 }
                 .chartYAxis {
