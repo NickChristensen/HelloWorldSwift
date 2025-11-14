@@ -52,14 +52,14 @@
 			);
 			target = 01CFC1DF2EC7AB8F003DC2E6 /* DailyActiveEnergyWidgetExtension */;
 		};
-		01CFC1FA2EC7AD45003DC2E6 /* Exceptions for "HelloWorld" folder in "DailyActiveEnergyWidgetExtension" target */ = {
+		01E565CA2EC7EC96008EA74A /* Exceptions for "HelloWorld" folder in "DailyActiveEnergyWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				ContentView.swift,
-				HealthKitManager.swift,
-				ShakeGesture.swift,
-				SharedEnergyData.swift,
-				WidgetPreviewContainer.swift,
+				Models/HourlyEnergyData.swift,
+				Models/SharedEnergyData.swift,
+				Views/Shared/EnergyChartView.swift,
+				Views/Shared/EnergyTrendView.swift,
+				Views/Shared/HeaderStatistic.swift,
 			);
 			target = 01CFC1DF2EC7AB8F003DC2E6 /* DailyActiveEnergyWidgetExtension */;
 		};
@@ -69,7 +69,7 @@
 		0176C6272E91B08F003EFE68 /* HelloWorld */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				01CFC1FA2EC7AD45003DC2E6 /* Exceptions for "HelloWorld" folder in "DailyActiveEnergyWidgetExtension" target */,
+				01E565CA2EC7EC96008EA74A /* Exceptions for "HelloWorld" folder in "DailyActiveEnergyWidgetExtension" target */,
 			);
 			path = HelloWorld;
 			sourceTree = "<group>";

@@ -2,13 +2,6 @@ import Foundation
 import HealthKit
 import Combine
 
-// Data model for hourly energy data
-struct HourlyEnergyData: Identifiable {
-    let id = UUID()
-    let hour: Date
-    let calories: Double
-}
-
 @MainActor
 final class HealthKitManager: ObservableObject {
     private let healthStore = HKHealthStore()

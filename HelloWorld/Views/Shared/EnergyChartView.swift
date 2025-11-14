@@ -1,13 +1,7 @@
-//
-//  ContentView.swift
-//  HelloWorld
-//
-//  Created by Nick Christensen on 2025-10-04.
-//
-
 import SwiftUI
 import Charts
 
+// MARK: - Constants
 
 private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 1/255)
 private let goalColor: Color = Color(.systemGray)
@@ -19,6 +13,8 @@ private let lineWidth: CGFloat = 4
 /// - Calendar.current.date(from: DateComponents(hour: 4, minute: 30))  // 4:30 AM
 /// - Calendar.current.date(from: DateComponents(hour: 13, minute: 40)) // 1:40 PM
 private let debugNowOverride: Date? = nil
+
+// MARK: - Helper Functions
 
 /// Helper to get current time (or debug override)
 private func getCurrentTime() -> Date {
@@ -54,6 +50,8 @@ private func calculateLabelCollisions(chartWidth: CGFloat, now: Date) -> (hidesS
 
     return (hidesStart, hidesEnd)
 }
+
+// MARK: - X-Axis Labels
 
 /// X-axis labels component (start of day, current hour, end of day)
 private struct ChartXAxisLabels: View {
@@ -129,13 +127,13 @@ private struct ChartXAxisLabels: View {
     }
 }
 
+// MARK: - Energy Chart View
+
 struct EnergyChartView: View {
     let todayHourlyData: [HourlyEnergyData]
     let averageHourlyData: [HourlyEnergyData]
     let moveGoal: Double
     let projectedTotal: Double
-
-    // Chart layout constants
 
     private var calendar: Calendar { Calendar.current }
     private var now: Date { getCurrentTime() }
@@ -166,7 +164,7 @@ struct EnergyChartView: View {
         }
     }
 
-    // Calculate max value for chart Y-axis
+    /// Calculate max value for chart Y-axis
     private func chartMaxValue(chartHeight: CGFloat) -> Double {
         return max(
             todayHourlyData.last?.calories ?? 0,
@@ -175,7 +173,6 @@ struct EnergyChartView: View {
             projectedTotal
         )
     }
-
 
     @ChartContentBuilder
     private var averageLines: some ChartContent {
@@ -303,229 +300,4 @@ struct EnergyChartView: View {
             }
         }
     }
-}
-
-/// Single statistic display with colored indicator and value
-struct HeaderStatistic: View {
-    let label: String
-    let statistic: Double
-    let color: Color
-    let circleColor: Color
-
-    init(label: String, statistic: Double, color: Color, circleColor: Color? = nil) {
-        self.label = label
-        self.statistic = statistic
-        self.color = color
-        self.circleColor = circleColor ?? color
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(circleColor)
-                    .frame(width: 10, height: 10)
-                Text(label)
-                    .font(.caption)
-                    .fontDesign(.rounded)
-                    .foregroundStyle(color)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(Int(statistic), format: .number)
-                    .font(.title2)
-                    .fontDesign(.rounded)
-                    .fontWeight(.bold)
-                    .foregroundStyle(color)
-                Text("cal")
-                    .font(.caption)
-                    .fontDesign(.rounded)
-                    .fontWeight(.bold)
-                    .foregroundStyle(color)
-            }
-        }
-    }
-}
-
-/// Reusable view combining statistics header and energy chart
-/// Can be used in both main app and widgets
-/// Uses flexible height layout to adapt to container size
-struct EnergyTrendView: View {
-    let todayTotal: Double
-    let averageAtCurrentHour: Double
-    let todayHourlyData: [HourlyEnergyData]
-    let averageHourlyData: [HourlyEnergyData]
-    let moveGoal: Double
-    let projectedTotal: Double
-
-    var body: some View {
-        GeometryReader { geometry in
-            let spacing = geometry.size.height > 300 ? 16.0 : 8.0
-
-            VStack(spacing: spacing) {
-                // Header with statistics (fixed height)
-                HStack(spacing: 0) {
-                    HeaderStatistic(label: "Today", statistic: todayTotal, color: activeEnergyColor)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HeaderStatistic(label: "Average", statistic: averageAtCurrentHour, color: Color(.systemGray))
-                        .frame(maxWidth: .infinity, alignment: .center)
-
-                    HeaderStatistic(label: "Total", statistic: projectedTotal, color: Color(.systemGray2), circleColor: Color(.systemGray4))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-
-                // Energy Trend Chart (flexible height - takes remaining space)
-                EnergyChartView(
-                    todayHourlyData: todayHourlyData,
-                    averageHourlyData: averageHourlyData,
-                    moveGoal: moveGoal,
-                    projectedTotal: projectedTotal
-                )
-                .frame(maxHeight: .infinity)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, spacing)
-        }
-    }
-}
-
-#if targetEnvironment(simulator)
-/// Development tools sheet content (simulator only)
-struct DevelopmentToolsSheet: View {
-    @ObservedObject var healthKitManager: HealthKitManager
-    @State private var isGeneratingData = false
-    @State private var dataGenerated = false
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Button(action: {
-                    Task {
-                        isGeneratingData = true
-                        do {
-                            try await healthKitManager.generateSampleData()
-                            // Refresh data after generating
-                            try await healthKitManager.fetchEnergyData()
-                            try await healthKitManager.fetchMoveGoal()
-                            dataGenerated = true
-                        } catch {
-                            print("Failed to generate sample data: \(error)")
-                        }
-                        isGeneratingData = false
-                    }
-                }) {
-                    HStack {
-                        if isGeneratingData {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .padding(.trailing, 4)
-                        }
-                        Text(isGeneratingData ? "Generating..." : "Generate Sample Data")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(10)
-                }
-                .disabled(isGeneratingData)
-
-                if dataGenerated {
-                    Text("✓ Sample data added to Health app")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Development Tools")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-}
-#endif
-
-struct ContentView: View {
-    @StateObject private var healthKitManager = HealthKitManager()
-    @State private var authorizationRequested = false
-    #if targetEnvironment(simulator)
-    @State private var showingDevTools = false
-    #endif
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                if healthKitManager.isAuthorized {
-                    // Medium Widget Preview
-                    WidgetPreviewContainer(family: .systemMedium, label: "Medium Widget") {
-                        EnergyTrendView(
-                            todayTotal: healthKitManager.todayTotal,
-                            averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
-                            todayHourlyData: healthKitManager.todayHourlyData,
-                            averageHourlyData: healthKitManager.averageHourlyData,
-                            moveGoal: healthKitManager.moveGoal,
-                            projectedTotal: healthKitManager.projectedTotal
-                        )
-                    }
-
-                    // Large Widget Preview
-                    WidgetPreviewContainer(family: .systemLarge, label: "Large Widget") {
-                        EnergyTrendView(
-                            todayTotal: healthKitManager.todayTotal,
-                            averageAtCurrentHour: healthKitManager.averageAtCurrentHour,
-                            todayHourlyData: healthKitManager.todayHourlyData,
-                            averageHourlyData: healthKitManager.averageHourlyData,
-                            moveGoal: healthKitManager.moveGoal,
-                            projectedTotal: healthKitManager.projectedTotal
-                        )
-                    }
-                } else if authorizationRequested {
-                    Text("⚠️ Waiting for authorization...")
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("Needs HealthKit access")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding()
-        }
-        #if targetEnvironment(simulator)
-        .onShake {
-            showingDevTools = true
-        }
-        .sheet(isPresented: $showingDevTools) {
-            DevelopmentToolsSheet(healthKitManager: healthKitManager)
-        }
-        #endif
-        .task {
-            // Request HealthKit authorization when view appears
-            guard !authorizationRequested else { return }
-            authorizationRequested = true
-
-            do {
-                try await healthKitManager.requestAuthorization()
-
-                // Fetch data after authorization
-                try await healthKitManager.fetchEnergyData()
-                try await healthKitManager.fetchMoveGoal()
-            } catch {
-                print("HealthKit error: \(error)")
-            }
-        }
-    }
-}
-
-#Preview {
-    ContentView()
 }
