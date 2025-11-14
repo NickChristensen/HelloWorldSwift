@@ -395,6 +395,8 @@ final class HealthKitManager: ObservableObject {
         // Convert to HourlyEnergyData
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
+        let currentHour = calendar.component(.hour, from: now)
+        let currentMinute = calendar.component(.minute, from: now)
 
         var hourlyData: [HourlyEnergyData] = []
 
@@ -406,6 +408,17 @@ final class HealthKitManager: ObservableObject {
             let hourDate = calendar.date(byAdding: .hour, value: hour + 1, to: startOfToday)!
             return HourlyEnergyData(hour: hourDate, calories: avgCumulative)
         }.sorted { $0.hour < $1.hour })
+
+        // Add interpolated NOW point for real-time average
+        // Interpolate between current hour and next hour based on minutes into hour
+        let avgAtCurrentHour = averageCumulativeByHour[currentHour] ?? 0
+        let avgAtNextHour = averageCumulativeByHour[currentHour + 1] ?? avgAtCurrentHour
+        let interpolationFactor = Double(currentMinute) / 60.0
+        let avgAtNow = avgAtCurrentHour + (avgAtNextHour - avgAtCurrentHour) * interpolationFactor
+
+        if avgAtNow > 0 {
+            hourlyData.append(HourlyEnergyData(hour: now, calories: avgAtNow))
+        }
 
         return hourlyData
     }

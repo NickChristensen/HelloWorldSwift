@@ -18,28 +18,25 @@ private struct ChartXAxisLabels: View {
     let chartWidth: CGFloat
 
     private var calendar: Calendar { Calendar.current }
-    private var startOfCurrentHour: Date {
-        let now = Date()
-        return calendar.dateInterval(of: .hour, for: now)!.start
-    }
+    private var now: Date { Date() }
 
     private func labelCollisions(chartWidth: CGFloat) -> (hidesStart: Bool, hidesEnd: Bool) {
-        let startOfDay = calendar.startOfDay(for: Date())
-        let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+        let startOfDay = calendar.startOfDay(for: now)
+        let nowOffset = now.timeIntervalSince(startOfDay)
         let dayDuration = TimeInterval(24 * 60 * 60)
-        let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
+        let nowPosition = chartWidth * (nowOffset / dayDuration)
 
-        let labelWidth: CGFloat = 40
+        let labelWidth: CGFloat = 50  // Wider to accommodate "7:28 PM"
         let minSeparation: CGFloat = 4
 
-        let currentHourLeft = currentHourPosition - labelWidth / 2
-        let currentHourRight = currentHourPosition + labelWidth / 2
+        let nowLeft = nowPosition - labelWidth / 2
+        let nowRight = nowPosition + labelWidth / 2
 
         let startLabelRight = labelWidth
-        let hidesStart = currentHourLeft < (startLabelRight + minSeparation)
+        let hidesStart = nowLeft < (startLabelRight + minSeparation)
 
         let endLabelLeft = chartWidth - labelWidth
-        let hidesEnd = currentHourRight > (endLabelLeft - minSeparation)
+        let hidesEnd = nowRight > (endLabelLeft - minSeparation)
 
         return (hidesStart, hidesEnd)
     }
@@ -58,18 +55,18 @@ private struct ChartXAxisLabels: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Current hour - aligned to edge if replacing start/end, otherwise centered
-            Text(startOfCurrentHour, format: .dateTime.hour())
+            // NOW - always centered at its natural position
+            Text(now, format: .dateTime.hour().minute())
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: collisions.hidesStart ? .leading : (collisions.hidesEnd ? .trailing : .center))
-                .offset(x: (!collisions.hidesStart && !collisions.hidesEnd) ? {
-                    let startOfDay = calendar.startOfDay(for: Date())
-                    let currentHourOffset = startOfCurrentHour.timeIntervalSince(startOfDay)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .offset(x: {
+                    let startOfDay = calendar.startOfDay(for: now)
+                    let nowOffset = now.timeIntervalSince(startOfDay)
                     let dayDuration = TimeInterval(24 * 60 * 60)
-                    let currentHourPosition = chartWidth * (currentHourOffset / dayDuration)
-                    return currentHourPosition - chartWidth / 2
-                }() : 0)
+                    let nowPosition = chartWidth * (nowOffset / dayDuration)
+                    return nowPosition - chartWidth / 2
+                }())
 
             // End of day - right aligned (hide if collides with current hour)
             if !collisions.hidesEnd {
@@ -92,11 +89,10 @@ struct EnergyChartView: View {
     // Chart layout constants
 
     private var calendar: Calendar { Calendar.current }
-    private var currentHour: Int { calendar.component(.hour, from: Date()) }
-    // Start of current hour (e.g., if it's 2:30 PM, this is 2:00 PM)
+    private var now: Date { Date() }
+    private var currentHour: Int { calendar.component(.hour, from: now) }
     private var startOfCurrentHour: Date {
-        let now = Date()
-        return calendar.dateInterval(of: .hour, for: now)!.start
+        calendar.dateInterval(of: .hour, for: now)!.start
     }
 
     // Calculate max value for chart Y-axis
@@ -112,14 +108,14 @@ struct EnergyChartView: View {
 
     @ChartContentBuilder
     private var averageLines: some ChartContent {
-        // Average data - up to current hour (darker gray)
-        ForEach(averageHourlyData.filter { $0.hour <= startOfCurrentHour }) { data in
+        // Average data - up to NOW (darker gray)
+        ForEach(averageHourlyData.filter { $0.hour <= now }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageUpToNow"))
                 .foregroundStyle(Color(.systemGray4))
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
         }
         // Average data - rest of day (lighter gray)
-        ForEach(averageHourlyData.filter { $0.hour >= startOfCurrentHour }) { data in
+        ForEach(averageHourlyData.filter { $0.hour >= now }) { data in
             LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "AverageRestOfDay"))
                 .foregroundStyle(Color(.systemGray6))
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
@@ -128,32 +124,18 @@ struct EnergyChartView: View {
 
     @ChartContentBuilder
     private var todayLine: some ChartContent {
-        // Split data into completed hours (solid line) and current hour (dashed line)
-        let completedData = todayHourlyData.filter { $0.hour <= startOfCurrentHour }
-        let inProgressData = todayHourlyData.filter { $0.hour > startOfCurrentHour }
-
-        // Completed hours - solid line
-        ForEach(completedData) { data in
-            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "TodayCompleted"))
+        // Single continuous line including current hour progress
+        ForEach(todayHourlyData) { data in
+            LineMark(x: .value("Hour", data.hour), y: .value("Calories", data.calories), series: .value("Series", "Today"))
                 .foregroundStyle(activeEnergyColor)
                 .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
-        }
-
-        // Current hour progress - dashed line with lighter color
-        // Need to connect from last completed hour to current progress
-        if let lastCompleted = completedData.last, let currentProgress = inProgressData.first {
-            LineMark(x: .value("Hour", lastCompleted.hour), y: .value("Calories", lastCompleted.calories), series: .value("Series", "TodayInProgress"))
-                .foregroundStyle(activeEnergyColor.opacity(0.6))
-                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: [6, 3]))
-            LineMark(x: .value("Hour", currentProgress.hour), y: .value("Calories", currentProgress.calories), series: .value("Series", "TodayInProgress"))
-                .foregroundStyle(activeEnergyColor.opacity(0.6))
-                .lineStyle(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: [6, 3]))
         }
     }
 
     @ChartContentBuilder
     private var averagePoint: some ChartContent {
-        if let avg = averageHourlyData.first(where: { $0.hour == startOfCurrentHour }) {
+        // Show average point at NOW (interpolated value)
+        if let avg = averageHourlyData.last(where: { abs($0.hour.timeIntervalSince(now)) < 60 }) {
             PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(.background).symbolSize(256)
             PointMark(x: .value("Hour", avg.hour), y: .value("Calories", avg.calories)).foregroundStyle(Color(.systemGray4)).symbolSize(100)
         }
@@ -178,7 +160,7 @@ struct EnergyChartView: View {
 
     @ChartContentBuilder
     private var nowLine: some ChartContent {
-        RuleMark(x: .value("Now", startOfCurrentHour))
+        RuleMark(x: .value("Now", now))
             .foregroundStyle(Color(.systemGray5))
             .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
     }
@@ -208,18 +190,17 @@ struct EnergyChartView: View {
                             let startOfDay = calendar.startOfDay(for: Date())
                             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
-                            // Check if this is a labeled hour (start of day, current hour, or end of day)
+                            // Check if this is a labeled hour (start of day or end of day only)
                             let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
                             let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
-                            let isCurrentHour = abs(date.timeIntervalSince(startOfCurrentHour)) < 60
-                            let isLabeledHour = isStartOfDay || isEndOfDay || isCurrentHour
+                            let isLabeledHour = isStartOfDay || isEndOfDay
 
                             if isLabeledHour {
                                 // Labeled hours: tick line
                                 AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
                                     .offset(CGSize(width: 0, height: 8))
                             } else {
-                                // Unlabeled hours: dot
+                                // Unlabeled hours (including NOW): dot
                                 AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
                                     .offset(CGSize(width: 0, height: 11))
                             }
