@@ -13,39 +13,60 @@ private let activeEnergyColor: Color = Color(red: 254/255, green: 73/255, blue: 
 private let goalColor: Color = Color(.systemGray)
 private let lineWidth: CGFloat = 4
 
+/// Debug: Override current time for testing. Set to nil to use real time.
+/// Examples:
+/// - Calendar.current.date(from: DateComponents(hour: 2, minute: 10))  // 2:10 AM
+/// - Calendar.current.date(from: DateComponents(hour: 4, minute: 30))  // 4:30 AM
+/// - Calendar.current.date(from: DateComponents(hour: 13, minute: 40)) // 1:40 PM
+private let debugNowOverride: Date? = nil
+
+/// Helper to get current time (or debug override)
+private func getCurrentTime() -> Date {
+    if let override = debugNowOverride {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let components = calendar.dateComponents([.hour, .minute], from: override)
+        return calendar.date(byAdding: components, to: today) ?? Date()
+    }
+    return Date()
+}
+
+/// Helper to determine if NOW label collides with start/end of day labels
+private func calculateLabelCollisions(chartWidth: CGFloat, now: Date) -> (hidesStart: Bool, hidesEnd: Bool) {
+    let calendar = Calendar.current
+    let startOfDay = calendar.startOfDay(for: now)
+    let nowOffset = now.timeIntervalSince(startOfDay)
+    let dayDuration = TimeInterval(24 * 60 * 60)
+    let nowPosition = chartWidth * (nowOffset / dayDuration)
+
+    let nowLabelWidth: CGFloat = 50  // "6:10 AM" with minutes
+    let startEndLabelWidth: CGFloat = 35  // "12 AM" without minutes
+    let minSeparation: CGFloat = 4
+
+    let nowLeft = nowPosition - nowLabelWidth / 2
+    let nowRight = nowPosition + nowLabelWidth / 2
+
+    let startLabelRight = startEndLabelWidth
+    let hidesStart = nowLeft < (startLabelRight + minSeparation)
+
+    let endLabelLeft = chartWidth - startEndLabelWidth
+    let hidesEnd = nowRight > (endLabelLeft - minSeparation)
+
+    return (hidesStart, hidesEnd)
+}
+
 /// X-axis labels component (start of day, current hour, end of day)
 private struct ChartXAxisLabels: View {
     let chartWidth: CGFloat
 
     private var calendar: Calendar { Calendar.current }
-    private var now: Date { Date() }
-
-    private func labelCollisions(chartWidth: CGFloat) -> (hidesStart: Bool, hidesEnd: Bool) {
-        let startOfDay = calendar.startOfDay(for: now)
-        let nowOffset = now.timeIntervalSince(startOfDay)
-        let dayDuration = TimeInterval(24 * 60 * 60)
-        let nowPosition = chartWidth * (nowOffset / dayDuration)
-
-        let labelWidth: CGFloat = 50  // Wider to accommodate "7:28 PM"
-        let minSeparation: CGFloat = 4
-
-        let nowLeft = nowPosition - labelWidth / 2
-        let nowRight = nowPosition + labelWidth / 2
-
-        let startLabelRight = labelWidth
-        let hidesStart = nowLeft < (startLabelRight + minSeparation)
-
-        let endLabelLeft = chartWidth - labelWidth
-        let hidesEnd = nowRight > (endLabelLeft - minSeparation)
-
-        return (hidesStart, hidesEnd)
-    }
+    private var now: Date { getCurrentTime() }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             let startOfDay = calendar.startOfDay(for: Date())
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-            let collisions = labelCollisions(chartWidth: chartWidth)
+            let collisions = calculateLabelCollisions(chartWidth: chartWidth, now: now)
 
             // Start of day - left aligned (hide if collides with current hour)
             if !collisions.hidesStart {
@@ -55,17 +76,45 @@ private struct ChartXAxisLabels: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // NOW - always centered at its natural position
+            // NOW - centered at natural position, but edge-aligned if that would go out of bounds
             Text(now, format: .dateTime.hour().minute())
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxWidth: .infinity, alignment: {
+                    let startOfDay = calendar.startOfDay(for: now)
+                    let nowOffset = now.timeIntervalSince(startOfDay)
+                    let dayDuration = TimeInterval(24 * 60 * 60)
+                    let nowPosition = chartWidth * (nowOffset / dayDuration)
+                    let nowLabelWidth: CGFloat = 50
+
+                    // Check if centering would put label out of bounds
+                    let centeredLeft = nowPosition - nowLabelWidth / 2
+                    let centeredRight = nowPosition + nowLabelWidth / 2
+
+                    if centeredLeft < 0 {
+                        return .leading  // Too close to left edge
+                    } else if centeredRight > chartWidth {
+                        return .trailing  // Too close to right edge
+                    } else {
+                        return .center  // Safe to center
+                    }
+                }())
                 .offset(x: {
                     let startOfDay = calendar.startOfDay(for: now)
                     let nowOffset = now.timeIntervalSince(startOfDay)
                     let dayDuration = TimeInterval(24 * 60 * 60)
                     let nowPosition = chartWidth * (nowOffset / dayDuration)
-                    return nowPosition - chartWidth / 2
+                    let nowLabelWidth: CGFloat = 50
+
+                    // Check if centering would put label out of bounds
+                    let centeredLeft = nowPosition - nowLabelWidth / 2
+                    let centeredRight = nowPosition + nowLabelWidth / 2
+
+                    if centeredLeft < 0 || centeredRight > chartWidth {
+                        return 0  // Edge-aligned, no offset needed
+                    } else {
+                        return nowPosition - chartWidth / 2  // Centered with offset
+                    }
                 }())
 
             // End of day - right aligned (hide if collides with current hour)
@@ -89,7 +138,7 @@ struct EnergyChartView: View {
     // Chart layout constants
 
     private var calendar: Calendar { Calendar.current }
-    private var now: Date { Date() }
+    private var now: Date { getCurrentTime() }
     private var currentHour: Int { calendar.component(.hour, from: now) }
     private var startOfCurrentHour: Date {
         calendar.dateInterval(of: .hour, for: now)!.start
@@ -189,18 +238,21 @@ struct EnergyChartView: View {
                         if let date = value.as(Date.self) {
                             let startOfDay = calendar.startOfDay(for: Date())
                             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+                            let collisions = calculateLabelCollisions(chartWidth: chartWidth, now: now)
 
-                            // Check if this is a labeled hour (start of day or end of day only)
+                            // Check if this is a labeled hour (start of day or end of day)
                             let isStartOfDay = abs(date.timeIntervalSince(startOfDay)) < 60
                             let isEndOfDay = abs(date.timeIntervalSince(endOfDay)) < 60
-                            let isLabeledHour = isStartOfDay || isEndOfDay
 
-                            if isLabeledHour {
-                                // Labeled hours: tick line
+                            // Only show tick line if it's a labeled hour AND its label is visible (not hidden by collision)
+                            let showTickLine = (isStartOfDay && !collisions.hidesStart) || (isEndOfDay && !collisions.hidesEnd)
+
+                            if showTickLine {
+                                // Visible labeled hours: tick line
                                 AxisTick(centered: true, length: 6, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
                                     .offset(CGSize(width: 0, height: 8))
                             } else {
-                                // Unlabeled hours (including NOW): dot
+                                // Unlabeled hours or hidden labels: dot
                                 AxisTick(centered: true, length: 0, stroke: StrokeStyle(lineWidth: 2, lineCap: .round))
                                     .offset(CGSize(width: 0, height: 11))
                             }
