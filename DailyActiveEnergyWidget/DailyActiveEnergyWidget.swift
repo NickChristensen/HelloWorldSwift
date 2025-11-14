@@ -182,11 +182,11 @@ struct DailyActiveEnergyWidget: Widget {
         StaticConfiguration(kind: kind, provider: EnergyWidgetProvider()) { entry in
             if #available(iOS 17.0, *) {
                 DailyActiveEnergyWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                    .containerBackground(Color(.systemBackground), for: .widget)
             } else {
                 DailyActiveEnergyWidgetEntryView(entry: entry)
                     .padding()
-                    .background()
+                    .background(Color(.systemBackground))
             }
         }
         .configurationDisplayName("Daily Active Energy")
