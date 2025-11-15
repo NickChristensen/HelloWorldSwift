@@ -1,62 +1,97 @@
 import SwiftUI
+import WidgetKit
 
 #if targetEnvironment(simulator)
+/// State for action buttons with icon transitions
+enum ActionButtonState {
+    case idle
+    case loading
+    case completed
+}
+
+/// Reusable action button with icon state transitions
+struct ActionButton: View {
+    let title: String
+    let icon: String
+    let action: () async -> Void
+
+    @State private var state: ActionButtonState = .idle
+
+    var body: some View {
+        Button(action: {
+            Task {
+                state = .loading
+                await action()
+                state = .completed
+
+                // Revert to original icon after 2 seconds
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                state = .idle
+            }
+        }) {
+            HStack(spacing: 12) {
+                iconView
+                    .frame(width: 24, height: 24)
+                Text(title)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .buttonStyle(.borderless)
+        .disabled(state == .loading)
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        switch state {
+        case .idle:
+            Image(systemName: icon)
+        case .loading:
+            ProgressView()
+                .progressViewStyle(.circular)
+        case .completed:
+            Image(systemName: "checkmark.circle.fill")
+        }
+    }
+}
+
 /// Development tools sheet content (simulator only)
 struct DevelopmentToolsSheet: View {
     @ObservedObject var healthKitManager: HealthKitManager
-    @State private var isGeneratingData = false
-    @State private var dataGenerated = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Button(action: {
-                    Task {
-                        isGeneratingData = true
-                        do {
-                            try await healthKitManager.generateSampleData()
-                            // Refresh data after generating
-                            try await healthKitManager.fetchEnergyData()
-                            try await healthKitManager.fetchMoveGoal()
-                            dataGenerated = true
-                        } catch {
-                            print("Failed to generate sample data: \(error)")
-                        }
-                        isGeneratingData = false
+            List {
+                ActionButton(
+                    title: "Generate Sample Data",
+                    icon: "testtube.2",
+                ) {
+                    do {
+                        try await healthKitManager.generateSampleData()
+                        // Refresh data after generating
+                        try await healthKitManager.fetchEnergyData()
+                        try await healthKitManager.fetchMoveGoal()
+                    } catch {
+                        print("Failed to generate sample data: \(error)")
                     }
-                }) {
-                    HStack {
-                        if isGeneratingData {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .padding(.trailing, 4)
-                        }
-                        Text(isGeneratingData ? "Generating..." : "Generate Sample Data")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(10)
                 }
-                .disabled(isGeneratingData)
+                .listRowBackground(Color(.systemBackground))
 
-                if dataGenerated {
-                    Text("✓ Sample data added to Health app")
-                        .font(.caption)
-                        .foregroundStyle(.green)
+                ActionButton(
+                    title: "Reload Widgets",
+                    icon: "widget.small",
+                ) {
+                    WidgetCenter.shared.reloadAllTimelines()
                 }
-
-                Spacer()
+                .listRowBackground(Color(.systemBackground))
             }
-            .padding()
+            .listStyle(.insetGrouped)
             .navigationTitle("Development Tools")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
                     }
                 }
             }
