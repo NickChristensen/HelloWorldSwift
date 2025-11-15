@@ -58,6 +58,15 @@ struct ContentView: View {
         .sheet(isPresented: $showingDevTools) {
             DevelopmentToolsSheet(healthKitManager: healthKitManager)
         }
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: { showingDevTools = true }) {
+                Image(systemName: "wrench.and.screwdriver")
+                    .frame(width: 44, height: 44)
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(.glass)
+            .padding()
+        }
         #endif
         .task {
             // Request HealthKit authorization when view appears
