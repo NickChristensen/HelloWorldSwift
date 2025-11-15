@@ -243,11 +243,11 @@ struct EnergyChartView: View {
                 // Chart with flexible height
                 Chart {
                     nowLine
+                    goalLine
                     averageLines
                     averagePoint
                     todayLine
                     todayPoint
-                    goalLine
                 }
                 .frame(maxHeight: .infinity)
                 .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!)
